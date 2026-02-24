@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+:root {
+  /* Light Mode - Warm Stone Base with Amber Brand */
+  --background: #FAFAF9;
+  /* Piedra Cálida */
+  --foreground: #44403C;
+  /* Sepia Oscuro */
+
+  --card: #FFFFFF;
+  /* Blanco */
+  --card-foreground: #44403C;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #44403C;
+
+  --primary: #F59E0B;
+  /* Ámbar/Dorado */
+  --primary-foreground: #000000;
+
+  --secondary: #F5F5F4;
+  /* Stone-100 */
+  --secondary-foreground: #1C1917;
+
+  --muted: #F5F5F4;
+  --muted-foreground: #78716C;
+  /* Stone-500 */
+
+  --accent: #F5F5F4;
+  --accent-foreground: #1C1917;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+
+  --success: #10B981;
+  /* Esmeralda */
+  --success-foreground: #000000;
+
+  --border: #E7E5E4;
+  /* Stone-200 */
+  --input: #E7E5E4;
+  --ring: #F59E0B;
+
+  --radius: 0.75rem;
+}
+
+.dark {
+  /* Dark Mode - Carbon Base with Ocre Brand */
+  --background: #1C1917;
+  /* Café/Carbón */
+  --foreground: #E7E5E4;
+  /* Arena Clara */
+
+  --card: #292524;
+  /* Gris Cálido */
+  --card-foreground: #E7E5E4;
+
+  --popover: #292524;
+  --popover-foreground: #E7E5E4;
+
+  --primary: #D97706;
+  /* Ocre */
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #44403C;
+  /* Stone-700 */
+  --secondary-foreground: #FAFAF9;
+
+  --muted: #44403C;
+  --muted-foreground: #A8A29E;
+  /* Stone-400 */
+
+  --accent: #44403C;
+  --accent-foreground: #FAFAF9;
+
+  --destructive: #7f1d1d;
+  --destructive-foreground: #fafafa;
+
+  --success: #059669;
+  /* Verde Inglés */
+  --success-foreground: #FFFFFF;
+
+  --border: #44403C;
+  --input: #44403C;
+  --ring: #D97706;
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+select option {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+/* --- Driver.js Custom Theme --- */
+.driver-popover.driverjs-theme {
+  background-color: var(--card) !important;
+  color: var(--card-foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 1.5rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.driver-popover.driverjs-theme .driver-popover-title {
+  color: var(--primary) !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.driver-popover.driverjs-theme .driver-popover-description {
+  color: var(--foreground) !important;
+  font-size: 0.95rem !important;
+  line-height: 1.5 !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.driver-popover.driverjs-theme button.driver-popover-next-btn,
+.driver-popover.driverjs-theme button.driver-popover-prev-btn {
+  background-color: var(--secondary) !important;
+  color: var(--secondary-foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.driver-popover.driverjs-theme button.driver-popover-next-btn:hover,
+.driver-popover.driverjs-theme button.driver-popover-prev-btn:hover {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.driver-popover.driverjs-theme button.driver-popover-close-btn {
+  background-color: transparent !important;
+  color: var(--muted-foreground) !important;
+  border: none !important;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.driver-popover.driverjs-theme .driver-popover-progress-text {
+  color: var(--muted-foreground) !important; 
+}

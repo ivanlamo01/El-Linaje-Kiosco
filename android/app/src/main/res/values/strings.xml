@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">El Linaje Kiosko</string>
+    <string name="title_activity_main">El Linaje Kiosko</string>
+    <string name="package_name">com.ellinajekiosko.app</string>
+    <string name="custom_url_scheme">com.ellinajekiosko.app</string>
+    <string name="server_client_id">802971134390-dsejb9g4uc2bbot1advdbq52cht6eu70.apps.googleusercontent.com</string>
+</resources>

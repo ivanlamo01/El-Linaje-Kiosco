@@ -1,0 +1,41 @@
+
+> livepos@0.1.0 build:mobile
+> cross-env IS_MOBILE_BUILD=true next build && npx cap sync
+
+   ▲ Next.js 16.0.8 (Turbopack)
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 3.9s
+   Running TypeScript ...
+   Collecting page data using 11 workers ...
+   Generating static pages using 11 workers (0/11) ...
+   Generating static pages using 11 workers (2/11) 
+   Generating static pages using 11 workers (5/11) 
+   Generating static pages using 11 workers (8/11) 
+ ✓ Generating static pages using 11 workers (11/11) in 827.8ms
+   Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /cart
+├ ○ /debtors
+├ ○ /expenses
+├ ○ /graficos
+├ ○ /inventario
+├ ○ /login
+├ ○ /sales
+└ ○ /users
+
+
+○  (Static)  prerendered as static content
+
+√ Copying web assets from out to android\app\src\main\assets\public in 40.26ms
+√ Creating capacitor.config.json in android\app\src\main\assets in 697.60μs
+√ copy android in 80.32ms
+√ Updating Android plugins in 8.93ms
+√ update android in 72.05ms
+√ copy web in 18.64ms
+√ update web in 15.66ms
+[info] Sync finished in 0.264s

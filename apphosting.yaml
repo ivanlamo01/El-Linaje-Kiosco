@@ -1,0 +1,39 @@
+# Configuración para Firebase App Hosting
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyDpASjlgQBL1h0iSG3iU0HzBrAokS2NEjI"
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "el-linaje-kiosco.firebaseapp.com"
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "el-linaje-kiosco"
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "el-linaje-kiosco.firebasestorage.app"
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "802971134390"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:802971134390:web:8990cce82215b3b09a7917"
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: "G-WBTR13Q7MF"
+  - variable: AFIP_CUIT
+    value: "27313918144"
+
+  - variable: AFIP_POS_PRODUCTOS
+    value: "9"
+
+
+  # Secretos (Configurar en Cloud Secret Manager)
+  - variable: FIREBASE_SERVICE_ACCOUNT_KEY
+    secret: FIREBASE_SERVICE_ACCOUNT_KEY
+  - variable: AFIP_SDK_ACCESS_TOKEN
+    secret: AFIP_SDK_ACCESS_TOKEN 
+  - variable: AFIP_CERT
+    secret: AFIP_CERT
+  - variable: AFIP_KEY
+    secret: AFIP_KEY
