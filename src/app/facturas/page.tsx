@@ -128,7 +128,7 @@ export default function FacturasList() {
 
     if (!login) {
         return (
-            <div className="flex h-screen items-center justify-center bg-background p-6">
+            <div className="flex h-screen items-center justify-center p-6">
                 <div className="text-center bg-card border border-border p-8 rounded-2xl max-w-md w-full shadow-2xl">
                     <FaExclamationTriangle className="text-5xl text-muted-foreground mx-auto mb-4" />
                     <h2 className="text-xl font-bold text-foreground mb-2">Acceso Restringido</h2>
@@ -140,7 +140,7 @@ export default function FacturasList() {
 
     if (!isAdmin) {
         return (
-            <div className="flex h-screen items-center justify-center bg-background p-6">
+            <div className="flex h-screen items-center justify-center p-6">
                 <div className="text-center bg-card border border-border p-8 rounded-2xl max-w-md w-full shadow-2xl">
                     <FaExclamationTriangle className="text-5xl text-destructive mx-auto mb-4" />
                     <h2 className="text-xl font-bold text-foreground mb-2">Acceso Denegado</h2>
@@ -164,7 +164,7 @@ export default function FacturasList() {
     };
 
     return (
-        <div className="min-h-screen bg-background text-foreground p-6 lg:p-8">
+        <div className="min-h-screen text-foreground p-6 lg:p-8">
             <div className="max-w-6xl mx-auto">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
                     <div>

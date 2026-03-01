@@ -114,7 +114,7 @@ export default function UsersPage() {
   // --- Loading ---
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground">
+      <div className="flex h-screen items-center justify-center text-foreground">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           <p className="text-muted-foreground animate-pulse">Cargando usuarios...</p>
@@ -126,7 +126,7 @@ export default function UsersPage() {
   // --- No Login ---
   if (!login) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background p-6">
+      <div className="flex h-screen items-center justify-center p-6">
         <div className="text-center bg-card border border-border p-8 rounded-2xl max-w-md w-full shadow-2xl">
           <FaLock className="text-5xl text-muted-foreground mx-auto mb-4" />
           <h2 className="text-xl font-bold text-foreground mb-2">Acceso Restringido</h2>
@@ -139,7 +139,7 @@ export default function UsersPage() {
   // --- Not Admin ---
   if (!user?.isAdmin) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background p-6">
+      <div className="flex h-screen items-center justify-center p-6">
         <div className="text-center bg-card border-destructive/30 border p-8 rounded-2xl max-w-md w-full shadow-2xl">
           <FaExclamationTriangle className="text-5xl text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-bold text-foreground mb-2">Acceso Denegado</h2>
@@ -151,7 +151,7 @@ export default function UsersPage() {
 
   // --- Main Content ---
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300">
+    <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 border-b border-border pb-4 flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
@@ -239,7 +239,7 @@ export default function UsersPage() {
 
         {/* Permission Modal */}
         {editingUser && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-card border border-border p-6 rounded-2xl max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
               <h2 className="text-xl font-bold mb-4 text-card-foreground flex items-center gap-2">
                 <FaUserShield className="text-primary" /> Editar Accesos: {editingUser.nombre}

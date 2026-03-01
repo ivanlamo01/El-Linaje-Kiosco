@@ -93,7 +93,7 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="min-h-screen bg-background p-6 lg:p-10 flex flex-col items-center">
+        <div className="min-h-screen p-6 lg:p-10 flex flex-col items-center">
              <div className="w-full max-w-2xl animate-fade-in">
                 <h1 className="text-3xl font-bold text-primary mb-2">Mi Perfil</h1>
                 <p className="text-muted-foreground mb-8">Administra tu información personal</p>

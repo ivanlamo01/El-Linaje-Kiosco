@@ -129,7 +129,7 @@ export default function FacturacionManual() {
 
     if (!login) {
         return (
-            <div className="flex h-screen items-center justify-center bg-background p-6">
+            <div className="flex h-screen items-center justify-center p-6">
                 <div className="text-center bg-card border border-border p-8 rounded-2xl max-w-md w-full shadow-2xl">
                     <FaExclamationTriangle className="text-5xl text-muted-foreground mx-auto mb-4" />
                     <h2 className="text-xl font-bold text-foreground mb-2">Acceso Restringido</h2>
@@ -141,7 +141,7 @@ export default function FacturacionManual() {
 
     if (!isAdmin) {
         return (
-            <div className="flex h-screen items-center justify-center bg-background p-6">
+            <div className="flex h-screen items-center justify-center p-6">
                 <div className="text-center bg-card border border-border p-8 rounded-2xl max-w-md w-full shadow-2xl">
                     <FaExclamationTriangle className="text-5xl text-destructive mx-auto mb-4" />
                     <h2 className="text-xl font-bold text-foreground mb-2">Acceso Denegado</h2>
@@ -152,7 +152,7 @@ export default function FacturacionManual() {
     }
 
     return (
-        <div className="min-h-screen bg-background text-foreground p-6 lg:p-8">
+        <div className="min-h-screen text-foreground p-6 lg:p-8">
             <div className="max-w-2xl mx-auto">
                 <div className="mb-6">
                     <Link href="/facturas" className="text-muted-foreground hover:text-foreground flex items-center gap-2 transition-colors">
@@ -198,19 +198,19 @@ export default function FacturacionManual() {
                                 )}
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-sm text-emerald-700">
-                                <div className="bg-background p-3 rounded-lg border border-emerald-500/20">
+                                <div className="p-3 rounded-lg border border-emerald-500/20">
                                     <span className="block text-xs uppercase font-bold">CAE</span>
                                     <span className="font-mono text-lg">{successData.cae}</span>
                                 </div>
-                                <div className="bg-background p-3 rounded-lg border border-emerald-500/20">
+                                <div className="p-3 rounded-lg border border-emerald-500/20">
                                     <span className="block text-xs uppercase font-bold">Vencimiento CAE</span>
                                     <span className="font-mono text-lg">{successData.vencimientoCae}</span>
                                 </div>
-                                <div className="bg-background p-3 rounded-lg border border-emerald-500/20">
+                                <div className="p-3 rounded-lg border border-emerald-500/20">
                                     <span className="block text-xs uppercase font-bold">Nro. Comprobante</span>
                                     <span className="font-mono text-lg">{successData.nroComprobante}</span>
                                 </div>
-                                <div className="bg-background p-3 rounded-lg border border-emerald-500/20">
+                                <div className="p-3 rounded-lg border border-emerald-500/20">
                                     <span className="block text-xs uppercase font-bold">Punto de Venta</span>
                                     <span className="font-mono text-lg">{successData.puntoVenta}</span>
                                 </div>
@@ -227,7 +227,7 @@ export default function FacturacionManual() {
                                     name="importe"
                                     value={formData.importe}
                                     onChange={handleChange}
-                                    className="w-full p-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                    className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                     placeholder="0.00"
                                     step="0.01"
                                     required
@@ -239,7 +239,7 @@ export default function FacturacionManual() {
                                     name="cbteTipo"
                                     value={formData.cbteTipo}
                                     onChange={handleChange}
-                                    className="w-full p-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                    className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                 >
                                     <option value="11">Factura C (Consumidor Final)</option>
                                     <option value="6">Factura B (Resp. Inscripto - Cons Final)</option>
@@ -255,7 +255,7 @@ export default function FacturacionManual() {
                                     name="docTipo"
                                     value={formData.docTipo}
                                     onChange={handleChange}
-                                    className="w-full p-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                    className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                 >
                                     <option value="99">Consumidor Final</option>
                                     <option value="96">DNI</option>
@@ -270,7 +270,7 @@ export default function FacturacionManual() {
                                     value={formData.docNro}
                                     onChange={handleChange}
                                     disabled={formData.docTipo === "99"}
-                                    className="w-full p-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
+                                    className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
                                     placeholder={formData.docTipo === "99" ? "No requerido" : "Ingrese número"}
                                 />
                             </div>
@@ -286,7 +286,7 @@ export default function FacturacionManual() {
                                         name="nombre"
                                         value={formData.nombre}
                                         onChange={handleChange}
-                                        className="w-full p-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                        className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                         placeholder="Ej: Juan Perez"
                                     />
                                 </div>
@@ -297,7 +297,7 @@ export default function FacturacionManual() {
                                         name="email"
                                         value={formData.email}
                                         onChange={handleChange}
-                                        className="w-full p-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                        className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                         placeholder="cliente@email.com"
                                     />
                                 </div>

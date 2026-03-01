@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import NavBar from "./NavBar";
 import MainLayout from "./MainLayout";
+import LightModeBackground from "./LightModeBackground";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const { login, loading } = useAuthContext();
@@ -14,21 +15,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         setMounted(true);
-
-        // Intentar sincronizar productos y ventas si estamos en Electron
-        const syncData = async () => {
-            const { productService } = await import("../lib/services/productService");
-            const { saleService } = await import("../lib/services/saleService");
-            const { categoryService } = await import("../lib/services/categoryService");
-
-            await productService.syncPendingProducts(); // Sync local -> Firestore first
-            await productService.syncFromFirestore();
-            await saleService.syncPendingSales();
-            await saleService.syncFromFirestore();
-            await categoryService.syncFromFirestore();
-        };
-        syncData();
     }, []);
+
+    useEffect(() => {
+        // Intentar sincronizar productos y ventas si estamos en Electron y el usuario está logueado
+        if (mounted && login) {
+            const syncData = async () => {
+                try {
+                    const { productService } = await import("../lib/services/productService");
+                    const { saleService } = await import("../lib/services/saleService");
+                    const { categoryService } = await import("../lib/services/categoryService");
+
+                    await productService.syncPendingProducts();
+                    await productService.syncFromFirestore();
+                    await saleService.syncPendingSales();
+                    await saleService.syncFromFirestore();
+                    await categoryService.syncFromFirestore();
+                } catch (error) {
+                    console.error("AppShell: Sync error", error);
+                }
+            };
+            syncData();
+        }
+    }, [mounted, login]);
 
     useEffect(() => {
         // Wait for auth to finish loading before redirecting
@@ -47,7 +56,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (loading) {
         console.log("AppShell: Loading state active");
         return (
-            <div className="flex h-screen items-center justify-center bg-background" style={{ backgroundColor: 'white', color: 'black' }}>
+            <div className="flex h-screen items-center justify-center" style={{ backgroundColor: 'white', color: 'black' }}>
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-muted-foreground animate-pulse">Cargando aplicación...</p>
@@ -76,6 +85,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <>
+            <LightModeBackground />
             <NavBar />
             <MainLayout>
                 {children}

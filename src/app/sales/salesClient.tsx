@@ -295,7 +295,7 @@ export default function SalesClient({ initialSales }: Props) {
 
     return (
         <>
-            <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300 print:hidden">
+            <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300 print:hidden">
                 <div className="max-w-6xl mx-auto space-y-6">
 
                     {/* Header */}

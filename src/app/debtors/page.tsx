@@ -87,14 +87,14 @@ export default function DebtorsPage() {
 
   if (loading) {
     return (
-      <div className="bg-background min-h-screen text-foreground flex items-center justify-center">
+      <div className="min-h-screen text-foreground flex items-center justify-center">
         <p>Cargando deudores...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-background min-h-screen text-foreground transition-colors duration-300">
+    <div className="min-h-screen text-foreground transition-colors duration-300">
       <DebtorsTable initialDebtors={debtors} />
     </div>
   );

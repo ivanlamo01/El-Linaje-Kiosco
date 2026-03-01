@@ -445,7 +445,7 @@ export default function DebtorsTable({
                                                             <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Detalle de la compra:</p>
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                                 {debt.products.map((prod, idx) => (
-                                                                    <div key={idx} className="flex justify-between items-center text-sm bg-background/50 p-2 rounded">
+                                                                    <div key={idx} className="flex justify-between items-center text-sm/50 p-2 rounded">
                                                                         <div className="flex flex-col">
                                                                             <span className="font-medium text-foreground">
                                                                                 {prod.name}

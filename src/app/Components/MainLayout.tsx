@@ -7,7 +7,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     return (
         <main
-            className={`pt-16 lg:pt-0 min-h-screen transition-all duration-300 ease-in-out ${isCollapsed ? "lg:ml-20" : "lg:ml-60"
+            className={`pt-16 lg:pt-0 min-h-screen relative z-10 transition-all duration-300 ease-in-out ${isCollapsed ? "lg:ml-20" : "lg:ml-60"
                 }`}
         >
             {children}

@@ -39,13 +39,13 @@ const CustomCarousel: React.FC = () => {
       <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 pointer-events-none">
         <button
           onClick={handlePrev}
-          className="w-8 h-8 flex items-center justify-center bg-background/50 hover:bg-primary hover:text-primary-foreground text-foreground rounded-full backdrop-blur-sm transition-all pointer-events-auto opacity-0 group-hover:opacity-100 border border-border"
+          className="w-8 h-8 flex items-center justify-center/50 hover:bg-primary hover:text-primary-foreground text-foreground rounded-full backdrop-blur-sm transition-all pointer-events-auto opacity-0 group-hover:opacity-100 border border-border"
         >
           <FaChevronLeft size={14} />
         </button>
         <button
           onClick={handleNext}
-          className="w-8 h-8 flex items-center justify-center bg-background/50 hover:bg-primary hover:text-primary-foreground text-foreground rounded-full backdrop-blur-sm transition-all pointer-events-auto opacity-0 group-hover:opacity-100 border border-border"
+          className="w-8 h-8 flex items-center justify-center/50 hover:bg-primary hover:text-primary-foreground text-foreground rounded-full backdrop-blur-sm transition-all pointer-events-auto opacity-0 group-hover:opacity-100 border border-border"
         >
           <FaChevronRight size={14} />
         </button>

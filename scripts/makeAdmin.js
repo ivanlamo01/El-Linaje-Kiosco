@@ -64,9 +64,25 @@ async function makeAdmin(email) {
     console.log(`✅ Custom claim 'isAdmin: true' asignado a ${email}`);
 
     // 2. Actualizar documento en Firestore
-    const userRef = db.collection('Usuarios').doc(uid);
-    await userRef.set({ isAdmin: true }, { merge: true });
-    console.log(`✅ Documento Firestore 'Usuarios/${uid}' actualizado con isAdmin: true`);
+    try {
+      const userRef = db.collection('Usuarios').doc(uid);
+
+      console.log(`Intentando actualizar Firestore en: ${userRef.path}...`);
+      await userRef.set({
+        isAdmin: true,
+        userId: uid,
+        email: email,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      console.log(`✅ Documento Firestore '${userRef.path}' actualizado con isAdmin: true`);
+    } catch (fsError) {
+      console.warn(`⚠️ No se pudo actualizar Firestore: ${fsError.message}`);
+      if (fsError.code === 7) {
+        console.error('El error 7 (PERMISSION_DENIED) suele significar que la API de Firestore no está lista o el Service Account no tiene permisos.');
+      }
+      console.log('El claim de Auth se asignó correctamente, el usuario debería tener acceso admin al loguearse de nuevo.');
+    }
 
     console.log('\n--- ÉXITO ---');
     console.log(`El usuario ${email} ahora es administrador.`);

@@ -676,7 +676,7 @@ function Cart() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300">
+    <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300">
       <div className="flex flex-col lg:flex-row gap-8 max-w-[1600px] mx-auto">
 
         {/* --- Lado izquierdo (Productos) --- */}
@@ -886,7 +886,7 @@ function Cart() {
 
       {/* --- Modal confirmación --- */}
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50 p-4 animate-fade-in">
+        <div className="fixed inset-0 flex items-center justify-center/80 backdrop-blur-sm z-50 p-4 animate-fade-in">
           <div className="bg-card border border-border rounded-2xl p-8 w-full max-w-md shadow-2xl animate-scale-up">
             <h3 className="text-2xl font-bold text-foreground mb-6">Confirmar Compra</h3>
 
@@ -977,7 +977,7 @@ function Cart() {
 
       {/* --- Modal Búsqueda de Productos (Disambiguation) --- */}
       {showSearchModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50 p-4 animate-fade-in">
+        <div className="fixed inset-0 flex items-center justify-center/80 backdrop-blur-sm z-50 p-4 animate-fade-in">
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl shadow-2xl animate-scale-up max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -1031,7 +1031,7 @@ function Cart() {
 
       {/* 🧾 Modal de Impresión de Ticket */}
       {showPrintModal && completedSale && (
-        <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-100 p-4 animate-fade-in print:bg-white print:p-0">
+        <div className="fixed inset-0 flex items-center justify-center/80 backdrop-blur-sm z-100 p-4 animate-fade-in print:bg-white print:p-0">
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl animate-scale-up text-center print:hidden">
             <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
               <FaPrint />

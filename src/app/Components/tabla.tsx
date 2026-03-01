@@ -467,7 +467,7 @@ const Tabla: React.FC = () => {
       {selectedIds.size > 0 && login && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-6 z-40 animate-slide-up border border-border/20">
           <span className="font-bold whitespace-nowrap">{selectedIds.size} seleccionados</span>
-          <div className="h-6 w-px bg-background/20"></div>
+          <div className="h-6 w-px/20"></div>
           <button
             onClick={() => setShowBulkUpdateModal(true)}
             className="bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 rounded-lg font-bold shadow-sm transition-all text-sm whitespace-nowrap flex items-center gap-2"

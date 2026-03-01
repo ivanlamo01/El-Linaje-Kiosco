@@ -56,7 +56,7 @@ export default function InvoiceDetailPage() {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-background text-foreground">
+            <div className="flex h-screen items-center justify-center text-foreground">
                 <div className="text-xl font-semibold">Cargando factura...</div>
             </div>
         );
@@ -64,7 +64,7 @@ export default function InvoiceDetailPage() {
 
     if (!invoice || notFound) {
         return (
-            <div className="flex h-screen items-center justify-center bg-background text-foreground flex-col gap-4">
+            <div className="flex h-screen items-center justify-center text-foreground flex-col gap-4">
                 <div className="text-xl font-semibold text-destructive">Factura no encontrada</div>
                 <button onClick={() => router.back()} className="px-4 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80">
                     Volver
@@ -74,7 +74,7 @@ export default function InvoiceDetailPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-8">
+        <div className="min-h-screen p-8">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-6 flex justify-between items-center print:hidden">
                     <button 

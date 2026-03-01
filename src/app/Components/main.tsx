@@ -216,7 +216,7 @@ const Main: React.FC = () => {
   }, [alert]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300">
+    <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300">
 
       {/* Header / Welcome */}
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

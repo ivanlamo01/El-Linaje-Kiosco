@@ -1,45 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  /* Light Mode - Warm Stone Base with Amber Brand */
-  --background: #FAFAF9;
-  /* Piedra Cálida */
-  --foreground: #44403C;
-  /* Sepia Oscuro */
+  /* Light Mode - Menu Menu Aesthetics */
+  --background: #E8D3B9;
+  /* Crema más claro basado en el documento */
+  --foreground: #38241D;
+  /* Texto marrón oscuro */
 
-  --card: #FFFFFF;
-  /* Blanco */
-  --card-foreground: #44403C;
+  --card: #C49A76;
+  /* Marrón más oscuro que el fondo para las cartas */
+  --card-foreground: #38241D;
 
-  --popover: #FFFFFF;
-  --popover-foreground: #44403C;
+  --popover: #C49A76;
+  --popover-foreground: #38241D;
 
-  --primary: #F59E0B;
-  /* Ámbar/Dorado */
-  --primary-foreground: #000000;
+  --primary: #D25E23;
+  /* Terracota usado en los textos y botones previamente */
+  --primary-foreground: #FFFFFF;
 
-  --secondary: #F5F5F4;
-  /* Stone-100 */
-  --secondary-foreground: #1C1917;
+  --sidebar: #D25E23;
+  --sidebar-foreground: #FFFFFF;
 
-  --muted: #F5F5F4;
-  --muted-foreground: #78716C;
-  /* Stone-500 */
+  --secondary: #D4B594;
+  /* Tono intermedio */
+  --secondary-foreground: #38241D;
 
-  --accent: #F5F5F4;
-  --accent-foreground: #1C1917;
+  --muted: #D1B89C;
+  --muted-foreground: #5E4132;
+
+  --accent: #D4B594;
+  --accent-foreground: #38241D;
 
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
 
   --success: #10B981;
-  /* Esmeralda */
   --success-foreground: #000000;
 
-  --border: #E7E5E4;
-  /* Stone-200 */
-  --input: #E7E5E4;
-  --ring: #F59E0B;
+  --border: #A67D5A;
+  /* Borde intermedio para destacar las cartas */
+  --input: #A67D5A;
+  --ring: #B87342;
 
   --radius: 0.75rem;
 }
@@ -61,6 +62,9 @@
   --primary: #D97706;
   /* Ocre */
   --primary-foreground: #FFFFFF;
+
+  --sidebar: #292524;
+  --sidebar-foreground: #E7E5E4;
 
   --secondary: #44403C;
   /* Stone-700 */
@@ -94,6 +98,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -121,6 +127,16 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+.sidebar-bg {
+  background-color: #D25E23;
+  color: #FFFFFF;
+}
+
+.dark .sidebar-bg {
+  background-color: #292524;
+  color: #E7E5E4;
+}
+
 select option {
   background-color: var(--card);
   color: var(--foreground);
@@ -141,6 +157,7 @@ select option {
 .animate-fade-in-up {
   animation: fadeInUp 0.3s ease-out forwards;
 }
+
 /* --- Driver.js Custom Theme --- */
 .driver-popover.driverjs-theme {
   background-color: var(--card) !important;
@@ -193,5 +210,5 @@ select option {
 }
 
 .driver-popover.driverjs-theme .driver-popover-progress-text {
-  color: var(--muted-foreground) !important; 
+  color: var(--muted-foreground) !important;
 }

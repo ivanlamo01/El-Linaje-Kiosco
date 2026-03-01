@@ -44,15 +44,19 @@ const NavBar: React.FC = () => {
   return (
     <>
       {/* --- MOBILE HEADER (Visible only on lg:hidden) --- */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border text-foreground flex items-center justify-between px-4 py-3 lg:hidden shadow-sm transition-colors duration-300">
-        <div className="flex items-center gap-2">
-          {/* Replaced generic img with a placeholder or keep it if it exists. Assuming it exists. */}
-          <img src="/Assets/img/logo.png" alt="Logo" className="h-8 w-auto" />
-          <span className="font-bold text-lg tracking-tight">Lo de Marta</span>
+      <header 
+        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b border-border flex items-center justify-between px-4 py-3 lg:hidden shadow-sm transition-colors duration-300 sidebar-bg"
+      >
+        <div className="flex items-center">
+          <img 
+            src="/Ellinaje.png" 
+            alt="El Linaje Logo" 
+            className="h-16 w-auto drop-shadow-md brightness-0 invert transition-all duration-300" 
+          />
         </div>
         <button
           onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="text-muted-foreground focus:outline-none p-2 rounded-lg hover:bg-secondary hover:text-foreground transition-colors"
+          className="text-primary-foreground/80 dark:text-muted-foreground focus:outline-none p-2 rounded-lg hover:bg-black/10 dark:hover:bg-secondary hover:text-primary-foreground transition-colors"
         >
           {isMobileOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
         </button>
@@ -60,7 +64,7 @@ const NavBar: React.FC = () => {
 
       {/* --- SIDEBAR --- */}
       <aside
-        className={`fixed top-0 left-0 h-screen bg-card border-r border-border text-muted-foreground flex flex-col shadow-xl z-40
+        className={`fixed top-0 left-0 h-screen border-r border-border flex flex-col shadow-xl z-40 sidebar-bg
         transition-all duration-300 ease-in-out
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         ${isCollapsed ? "lg:w-20" : "lg:w-64"}
@@ -68,17 +72,12 @@ const NavBar: React.FC = () => {
         `}
       >
         {/* LOGO AREA (Desktop) */}
-        <div id="sidebar-logo" className={`flex items-center justify-center py-6 border-b border-border transition-all duration-300 ${isCollapsed ? "px-2" : "px-6"}`}>
+        <div id="sidebar-logo" className={`flex items-center justify-center py-6 border-b border-border transition-all duration-300 ${isCollapsed ? "px-2" : "px-4"}`}>
           <img
-            src="/Assets/img/logo.png"
-            alt="Logo"
-            className={`transition-all duration-300 ${isCollapsed ? "w-10" : "w-12"}`}
+            src="/Ellinaje.png"
+            alt="El Linaje"
+            className={`transition-all duration-300 drop-shadow-md brightness-0 invert ${isCollapsed ? "w-14 h-14 object-contain" : "w-36 h-36 object-contain"}`}
           />
-          {!isCollapsed && (
-            <span className="ml-3 font-bold text-foreground text-xl hidden lg:block whitespace-nowrap overflow-hidden tracking-tight">
-              Lo de Marta
-            </span>
-          )}
         </div>
 
         {/* USER INFO */}
@@ -87,9 +86,9 @@ const NavBar: React.FC = () => {
             <div 
               id="sidebar-user" 
               onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-              className={`flex items-center p-4 border-b border-border transition-all duration-300 cursor-pointer hover:bg-muted/50 ${isCollapsed ? "justify-center" : "gap-3"}`}
+              className={`flex items-center p-4 border-b border-border bg-card text-card-foreground transition-all duration-300 cursor-pointer hover:brightness-95 ${isCollapsed ? "justify-center" : "gap-3"}`}
             >
-              <div className="bg-secondary p-2.5 rounded-full text-foreground/80">
+              <div className="bg-primary p-2.5 rounded-full text-foreground/80">
                 <FaUserCircle size={20} />
               </div>
               {!isCollapsed && (
@@ -174,11 +173,11 @@ const NavBar: React.FC = () => {
         </nav>
 
         {/* FOOTER ACTIONS */}
-        <div className="p-4 border-t border-border flex flex-col gap-2 bg-card">
+        <div className="p-4 border-t border-border flex flex-col gap-2 sidebar-bg">
           {/* Toggle Button (Desktop Only) */}
           <button
             onClick={toggleSidebar}
-            className="hidden lg:flex items-center justify-center w-full p-2 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+            className="hidden lg:flex items-center justify-center w-full p-2 rounded-xl bg-black/10 dark:bg-secondary hover:bg-black/20 dark:hover:bg-secondary/80 text-primary-foreground dark:text-foreground transition-colors"
             title={isCollapsed ? "Expandir" : "Contraer"}
           >
             {isCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
@@ -229,13 +228,13 @@ const NavItem = ({ href, icon, label, collapsed, onClick, id }: { href: string; 
       id={id}
       onClick={onClick}
       className={`
-                group flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground 
-                hover:bg-accent hover:text-accent-foreground transition-all duration-200
+                group flex items-center gap-3 px-3 py-2.5 rounded-xl text-primary-foreground/90 dark:text-muted-foreground 
+                hover:bg-black/10 dark:hover:bg-accent hover:text-primary-foreground dark:hover:text-accent-foreground transition-all duration-200
                 ${collapsed ? "justify-center" : ""}
             `}
       title={collapsed ? label : ""}
     >
-      <div className="group-hover:text-primary transition-colors">
+      <div className="group-hover:text-primary-foreground dark:group-hover:text-primary transition-colors">
         {icon}
       </div>
       {!collapsed && (

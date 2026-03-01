@@ -113,7 +113,7 @@ const ExpensesTable = () => {
   // --- Loading ---
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground">
+      <div className="flex h-screen items-center justify-center text-foreground">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           <p className="text-muted-foreground animate-pulse">Cargando gastos...</p>
@@ -123,7 +123,7 @@ const ExpensesTable = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300">
+    <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300">
       <div className="max-w-5xl mx-auto space-y-6">
 
         {/* Header */}
@@ -329,7 +329,7 @@ const ExpensesTable = () => {
 
         {/* Modal confirmación */}
         {confirmDelete && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-card border border-border p-6 rounded-2xl max-w-sm w-full shadow-2xl animate-scale-up">
               <h2 className="text-xl font-bold mb-2 text-card-foreground flex items-center gap-2">
                 <FaTrash className="text-red-500" /> Eliminar Gasto

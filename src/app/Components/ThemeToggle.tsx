@@ -23,7 +23,8 @@ export default function ThemeToggle({ collapsed = false }: { collapsed?: boolean
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className={`
         flex items-center gap-3 p-3 rounded-xl 
-        text-muted-foreground hover:bg-secondary hover:text-foreground 
+        text-primary-foreground/90 dark:text-muted-foreground 
+        hover:bg-black/10 dark:hover:bg-secondary hover:text-primary-foreground dark:hover:text-foreground 
         transition-all duration-200
         ${collapsed ? "justify-center" : ""}
       `}
