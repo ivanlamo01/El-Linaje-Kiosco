@@ -228,17 +228,17 @@ const NavItem = ({ href, icon, label, collapsed, onClick, id }: { href: string; 
       id={id}
       onClick={onClick}
       className={`
-                group flex items-center gap-3 px-3 py-2.5 rounded-xl text-primary-foreground/90 dark:text-muted-foreground 
-                hover:bg-black/10 dark:hover:bg-accent hover:text-primary-foreground dark:hover:text-accent-foreground transition-all duration-200
+                group flex items-center gap-3 px-3 py-2.5 rounded-xl text-black dark:text-white/70
+                hover:bg-black/10 dark:hover:bg-accent hover:text-white dark:hover:text-white transition-all duration-200
                 ${collapsed ? "justify-center" : ""}
             `}
       title={collapsed ? label : ""}
     >
-      <div className="group-hover:text-primary-foreground dark:group-hover:text-primary transition-colors">
+      <div className="text-black group-hover:text-white dark:text-white/70 dark:group-hover:text-white transition-colors">
         {icon}
       </div>
       {!collapsed && (
-        <span className="font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300 opacity-100">
+        <span className="font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300 opacity-100 text-black group-hover:text-white dark:text-white/70 dark:group-hover:text-white">
           {label}
         </span>
       )}

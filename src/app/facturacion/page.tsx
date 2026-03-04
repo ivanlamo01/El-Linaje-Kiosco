@@ -227,6 +227,7 @@ export default function FacturacionManual() {
                                     name="importe"
                                     value={formData.importe}
                                     onChange={handleChange}
+                                    onFocus={(e) => e.target.select()}
                                     className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                     placeholder="0.00"
                                     step="0.01"
@@ -269,6 +270,7 @@ export default function FacturacionManual() {
                                     name="docNro"
                                     value={formData.docNro}
                                     onChange={handleChange}
+                                    onFocus={(e) => e.target.select()}
                                     disabled={formData.docTipo === "99"}
                                     className="w-full p-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
                                     placeholder={formData.docTipo === "99" ? "No requerido" : "Ingrese número"}

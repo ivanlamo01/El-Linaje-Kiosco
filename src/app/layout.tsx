@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Lo de Marta",
+  title: "El Linaje Kiosko",
   description: "Sistema de gestión de inventario y ventas",
 };
 

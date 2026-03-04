@@ -6,6 +6,7 @@ import { db } from "@/app/config/firebase";
 import { useAuthContext } from "../Context/AuthContext";
 import { formatCurrency } from "@/app/lib/utils/afipHelpers";
 import { FaFileInvoice, FaEye, FaArrowLeft, FaBan, FaExclamationTriangle } from "react-icons/fa";
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 
 interface Invoice {
     id: string;
@@ -29,6 +30,7 @@ export default function FacturasList() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const { showAlert, showConfirm, AlertComponent } = useCustomAlert();
 
     useEffect(() => {
         if (isAdmin) {
@@ -49,81 +51,86 @@ export default function FacturasList() {
         }
     };
 
-    const handleAnular = async (invoice: Invoice) => {
-        if (!confirm(`¿Estás seguro de que querés ANULAR la factura ${invoice.nroComprobante}? Esto generará una Nota de Crédito en AFIP.`)) {
-            return;
-        }
+    const handleAnular = (invoice: Invoice) => {
+        showConfirm(
+            "Anular Factura",
+            `¿Estás seguro de que querés ANULAR la factura ${invoice.nroComprobante}? Esto generará una Nota de Crédito en AFIP.`,
+            async () => {
+                setProcessingId(invoice.id);
+                try {
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 
-        setProcessingId(invoice.id);
-        try {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    if (typeof window !== 'undefined' && window.electron && window.electron.afip) {
+                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                        // @ts-expect-error
+                        const result = await window.electron.afip.crearNotaCreditoC({
+                            importe: invoice.importe,
+                            concepto: invoice.concepto,
+                            docNro: invoice.docNro,
+                            docTipo: invoice.docTipo,
+                            voucherAsociado: invoice.nroComprobante
+                        });
 
-            if (typeof window !== 'undefined' && window.electron && window.electron.afip) {
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-expect-error
-                const result = await window.electron.afip.crearNotaCreditoC({
-                    importe: invoice.importe,
-                    concepto: invoice.concepto,
-                    docNro: invoice.docNro,
-                    docTipo: invoice.docTipo,
-                    voucherAsociado: invoice.nroComprobante
-                });
+                        if (!result.success) throw new Error(result.error);
 
-                if (!result.success) throw new Error(result.error);
+                        const ncData = result.data;
 
-                const ncData = result.data;
+                        // 1. Update original invoice status
+                        const invoiceRef = doc(db, "facturas", invoice.id);
+                        await updateDoc(invoiceRef, { status: "anulada" });
 
-                // 1. Update original invoice status
-                const invoiceRef = doc(db, "facturas", invoice.id);
-                await updateDoc(invoiceRef, { status: "anulada" });
+                        // 2. Save Credit Note
+                        await addDoc(collection(db, "facturas"), {
+                            ...ncData,
+                            importe: invoice.importe,
+                            concepto: invoice.concepto,
+                            docNro: invoice.docNro,
+                            docTipo: invoice.docTipo,
+                            nombre: invoice.nombre || null,
+                            tipo: 'NC',
+                            relatedInvoiceId: invoice.id,
+                            createdAt: serverTimestamp(),
+                            manual: true
+                        });
 
-                // 2. Save Credit Note
-                await addDoc(collection(db, "facturas"), {
-                    ...ncData,
-                    importe: invoice.importe,
-                    concepto: invoice.concepto,
-                    docNro: invoice.docNro,
-                    docTipo: invoice.docTipo,
-                    nombre: invoice.nombre || null,
-                    tipo: 'NC',
-                    relatedInvoiceId: invoice.id,
-                    createdAt: serverTimestamp(),
-                    manual: true
-                });
+                        showAlert("Éxito", `Factura anulada con éxito. Nota de Crédito generada: ${ncData.nroComprobante}`, "success");
 
-                alert(`Factura anulada con éxito. Nota de Crédito generada: ${ncData.nroComprobante}`);
+                    } else {
+                        const res = await fetch("/api/afip/nota-credito", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                facturaId: invoice.id,
+                                importe: invoice.importe,
+                                concepto: invoice.concepto,
+                                docNro: invoice.docNro,
+                                docTipo: invoice.docTipo,
+                                nroComprobanteOriginal: invoice.nroComprobante
+                            })
+                        });
 
-            } else {
-                const res = await fetch("/api/afip/nota-credito", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        facturaId: invoice.id,
-                        importe: invoice.importe,
-                        concepto: invoice.concepto,
-                        docNro: invoice.docNro,
-                        docTipo: invoice.docTipo,
-                        nroComprobanteOriginal: invoice.nroComprobante
-                    })
-                });
+                        const data = await res.json();
 
-                const data = await res.json();
+                        if (!res.ok) {
+                            throw new Error(data.error || "Error al anular factura");
+                        }
 
-                if (!res.ok) {
-                    throw new Error(data.error || "Error al anular factura");
+                        showAlert("Éxito", `Factura anulada con éxito. Nota de Crédito generada: ${data.data.nroComprobante}`, "success");
+                    }
+
+                    fetchInvoices(); // Refresh list
+
+                } catch (error: unknown) {
+                    console.error("Error anulando factura:", error);
+                    showAlert("Error", (error as Error).message, "error");
+                } finally {
+                    setProcessingId(null);
                 }
-
-                alert(`Factura anulada con éxito. Nota de Crédito generada: ${data.data.nroComprobante}`);
-            }
-
-            fetchInvoices(); // Refresh list
-
-        } catch (error: unknown) {
-            console.error("Error anulando factura:", error);
-            alert((error as Error).message);
-        } finally {
-            setProcessingId(null);
-        }
+            },
+            "warning",
+            "Sí, anular",
+            "Cancelar"
+        );
     };
 
     if (!login) {
@@ -307,6 +314,7 @@ export default function FacturasList() {
                     )}
                 </div>
             </div>
+            {AlertComponent}
         </div>
     );
 }

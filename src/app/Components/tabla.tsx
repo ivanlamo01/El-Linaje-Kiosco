@@ -11,10 +11,12 @@ import { categoryService } from "../lib/services/categoryService";
 import BulkUpdateModal, { BulkActionPayload } from "./BulkUpdateModal";
 import { useAuthContext } from "../Context/AuthContext";
 import { useTutorial } from "../Context/TutorialContext";
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 
 const Tabla: React.FC = () => {
   const { login } = useAuthContext();
   const { startTutorial } = useTutorial();
+  const { showAlert, showConfirm, AlertComponent } = useCustomAlert();
 
   // --- Estados de Datos ---
   const [allProductos, setAllProductos] = useState<ProductoProps[]>([]); // Todos los productos (raw)
@@ -206,12 +208,11 @@ const Tabla: React.FC = () => {
           return p;
         }));
       }
-
-      alert(`Operación masiva exitosa en ${selectedIds.size} productos ✅`);
+      showAlert("Éxito", `Operación masiva exitosa en ${selectedIds.size} productos`, "success");
       setSelectedIds(new Set());
     } catch (error) {
       console.error(error);
-      alert("Error en operación masiva ❌");
+      showAlert("Error", "Error en operación masiva", "error");
     }
   };
 
@@ -232,15 +233,15 @@ const Tabla: React.FC = () => {
       
       if (result.success && result.id) {
           addToLocalData({ ...payload, id: result.id, Barcode: payload.Barcode } as ProductoProps);
-          alert("Producto agregado ✅");
+          showAlert("Éxito", "Producto agregado", "success");
           setShowProductForm(false);
           setNewProduct({ title: "", price: 0, category: "", stock: 0, Barcode: "" });
       } else {
-        alert("Error al agregar producto: " + result.error);
+        showAlert("Error", "Error al agregar producto: " + result.error, "error");
       }
     } catch (error) {
        console.error(error);
-       alert("Error al agregar producto ❌");
+       showAlert("Error", "Error al agregar producto", "error");
     }
   };
 
@@ -259,23 +260,31 @@ const Tabla: React.FC = () => {
       await productService.update(editingProduct.id, payload);
 
       refreshLocalData({ ...editingProduct, ...payload });
-      alert("Producto actualizado ✅");
+      showAlert("Éxito", "Producto actualizado", "success");
       setEditingProduct(null);
     } catch (error) {
       console.error(error);
-      alert("Error al actualizar ❌");
+      showAlert("Error", "Error al actualizar", "error");
     }
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!confirm("¿Estás seguro de eliminar este producto?")) return;
-    try {
-      await productService.delete(id);
-      removeFromLocalData(id);
-    } catch (error) {
-      console.error(error);
-      alert("Error al eliminar ❌");
-    }
+  const handleDeleteProduct = (id: string) => {
+    showConfirm(
+      "Eliminar Producto",
+      "¿Estás seguro de eliminar este producto?",
+      async () => {
+        try {
+          await productService.delete(id);
+          removeFromLocalData(id);
+          showAlert("Éxito", "Producto eliminado", "success");
+        } catch (error) {
+          console.error(error);
+          showAlert("Error", "Error al eliminar", "error");
+        }
+      },
+      "warning",
+      "Sí, eliminar"
+    );
   };
 
   const handleAddCategory = async (e: FormEvent) => {
@@ -284,37 +293,44 @@ const Tabla: React.FC = () => {
       const result = await categoryService.add(newCategory);
       if (result.success && result.id) {
           setCategoriasMap(prev => ({ ...prev, [result.id!]: newCategory.name }));
-          alert("Categoría creada ✅");
+          showAlert("Éxito", "Categoría creada", "success");
           setShowCategoryForm(false);
           setNewCategory({ name: "" });
       } else {
-        alert("Error creando categoría: " + result.error);
+        showAlert("Error", "Error creando categoría: " + result.error, "error");
       }
     } catch (error) {
-      alert("Error creando categoría");
+      showAlert("Error", "Error creando categoría", "error");
     }
   };
 
   const handleDeleteCategory = async () => {
     if (!filterCategory) return;
-    if (!confirm(`¿Estás seguro de eliminar la categoría "${categoriasMap[filterCategory]}"? Esta acción no se puede deshacer.`)) return;
+    
+    showConfirm(
+      "Eliminar Categoría",
+      `¿Estás seguro de eliminar la categoría "${categoriasMap[filterCategory]}"? Esta acción no se puede deshacer.`,
+      async () => {
+        try {
+          await categoryService.delete(filterCategory);
 
-    try {
-      await categoryService.delete(filterCategory);
+          // Update local state
+          const newMap = { ...categoriasMap };
+          delete newMap[filterCategory];
+          setCategoriasMap(newMap);
 
-      // Update local state
-      const newMap = { ...categoriasMap };
-      delete newMap[filterCategory];
-      setCategoriasMap(newMap);
+          // Reset filter
+          setFilterCategory("");
 
-      // Reset filter
-      setFilterCategory("");
-
-      alert("Categoría eliminada ✅");
-    } catch (error) {
-      console.error("Error eliminando categoría:", error);
-      alert("Error al eliminar categoría ❌");
-    }
+          showAlert("Éxito", "Categoría eliminada", "success");
+        } catch (error) {
+          console.error("Error eliminando categoría:", error);
+          showAlert("Error", "Error al eliminar categoría", "error");
+        }
+      },
+      "warning",
+      "Sí, eliminar"
+    );
   };
 
   return (
@@ -504,11 +520,11 @@ const Tabla: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block">
                 <span className="text-sm font-bold mb-1 block">Precio</span>
-                <input type="number" placeholder="Precio" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: Number(e.target.value) })} required />
+                <input type="number" placeholder="Precio" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={newProduct.price === 0 ? "" : newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value === "" ? 0 : Number(e.target.value) })} onFocus={(e) => e.target.select()} required />
               </label>
               <label className="block">
                 <span className="text-sm font-bold mb-1 block">Stock</span>
-                <input type="number" placeholder="Stock" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} required />
+                <input type="number" placeholder="Stock" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={newProduct.stock === 0 ? "" : newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value === "" ? 0 : Number(e.target.value) })} onFocus={(e) => e.target.select()} required />
               </label>
             </div>
             <select className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} required >
@@ -556,11 +572,11 @@ const Tabla: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block">
                 <span className="text-sm font-bold mb-1 block">Precio</span>
-                <input type="number" placeholder="Precio" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: Number(e.target.value) })} required />
+                <input type="number" placeholder="Precio" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={editingProduct.price === 0 ? "" : editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value === "" ? 0 : Number(e.target.value) })} onFocus={(e) => e.target.select()} required />
               </label>
               <label className="block">
                 <span className="text-sm font-bold mb-1 block">Stock</span>
-                <input type="number" placeholder="Stock" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={editingProduct.stock} onChange={(e) => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} required />
+                <input type="number" placeholder="Stock" className="w-full p-3 border border-border rounded-xl bg-input text-foreground" value={editingProduct.stock === 0 ? "" : editingProduct.stock} onChange={(e) => setEditingProduct({ ...editingProduct, stock: e.target.value === "" ? 0 : Number(e.target.value) })} onFocus={(e) => e.target.select()} required />
               </label>
             </div>
             <label>
@@ -581,6 +597,7 @@ const Tabla: React.FC = () => {
           </form>
         </div>
       )}
+      {AlertComponent}
     </div>
   );
 };

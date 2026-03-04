@@ -9,6 +9,7 @@ import { db } from "../config/firebase";
 import WeeklySalesChart from "./weeklySalesChart";
 import { getNotes, addNote, deleteNote, updateNote } from "../lib/services/notesServices";
 import { useAuthContext } from "../Context/AuthContext";
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 
 const auth = getAuth();
 
@@ -28,6 +29,7 @@ const Main: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ variant: string; text: string } | null>(null);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const { showAlert, showConfirm, AlertComponent } = useCustomAlert();
 
   // Notes state
   const [newNoteTitle, setNewNoteTitle] = useState("");
@@ -87,19 +89,24 @@ const Main: React.FC = () => {
     setExpandedNoteId(expandedNoteId === id ? null : id);
   };
 
-  const handleDeleteNote = async (noteId: string) => {
+  const handleDeleteNote = (noteId: string) => {
     if (!isAdmin) return;
-    if (confirm("¿Estás seguro de eliminar esta nota?")) {
-      try {
-        await deleteNote(noteId);
-        loadNotes();
-        setAlert({ variant: "success", text: "Nota eliminada" });
-        setTimeout(() => setAlert(null), 3000);
-      } catch (error) {
-        console.error(error);
-        setAlert({ variant: "error", text: "Error al eliminar nota" });
-      }
-    }
+    showConfirm(
+      "Eliminar Nota",
+      "¿Estás seguro de eliminar esta nota?",
+      async () => {
+        try {
+          await deleteNote(noteId);
+          loadNotes();
+          setAlert({ variant: "success", text: "Nota eliminada" });
+        } catch (error) {
+          console.error(error);
+          setAlert({ variant: "error", text: "Error al eliminar nota" });
+        }
+      },
+      "warning",
+      "Sí, eliminar"
+    );
   };
 
   const handleStartEdit = (note: Note) => {
@@ -527,6 +534,7 @@ const Main: React.FC = () => {
           {totalWeeklySales}
         </div>
       </div>
+      {AlertComponent}
     </div>
   );
 };

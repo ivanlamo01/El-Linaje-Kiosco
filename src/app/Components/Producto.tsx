@@ -53,11 +53,7 @@ const Producto: React.FC<ProductoProps> = ({
               Editar
             </button>
             <button
-              onClick={() => {
-                if (window.confirm("¿Estás seguro de que quieres eliminar este producto?")) {
-                  onDelete?.();
-                }
-              }}
+              onClick={onDelete}
               className="bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 px-3 py-2 rounded-lg transition-all shadow-sm flex items-center justify-center"
               title="Eliminar producto"
             >

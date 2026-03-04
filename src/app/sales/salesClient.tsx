@@ -651,6 +651,7 @@ export default function SalesClient({ initialSales }: Props) {
                                     placeholder="Ingrese DNI o CUIT sin guiones"
                                     value={billingData.docNro}
                                     onChange={(e) => setBillingData({ ...billingData, docNro: e.target.value })}
+                                    onFocus={(e) => e.target.select()}
                                 />
                             </div>
                         </div>
