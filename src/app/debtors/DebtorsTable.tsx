@@ -13,6 +13,7 @@ import {
     collection,
 } from "firebase/firestore";
 import { FaUserPlus, FaChevronDown, FaChevronUp, FaLock, FaLockOpen, FaMoneyBillWave, FaTrash, FaHistory, FaQuestion } from "react-icons/fa";
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 
 // ---------------------- TYPES ----------------------
 type Product = {
@@ -67,12 +68,7 @@ export default function DebtorsTable({
     const [newDebtorName, setNewDebtorName] = useState<string>("");
     const [newDebtorNumero, setNewDebtorNumero] = useState<string>("");
 
-    // Estado para confirmación de borrado
-    const [confirmDelete, setConfirmDelete] = useState<{
-        type: "debtor" | "debt" | "history";
-        debtorId: string;
-        debtIndex?: number;
-    } | null>(null);
+    const { showAlert, showConfirm, AlertComponent } = useCustomAlert();
 
     // ---------------------- ACTIONS ----------------------
     // Toggle Cuenta Cerrada
@@ -102,16 +98,17 @@ export default function DebtorsTable({
             setDebtors(prev => prev.map(d =>
                 d.id === debtorId ? { ...d, debts: [], totalAmount: 0 } : d
             ));
-            setConfirmDelete(null);
+            showAlert("Éxito", "Historial eliminado correctamente", "success");
         } catch (err) {
             console.error("Error eliminando historial:", err);
+            showAlert("Error", "Error al eliminar el historial", "error");
         }
     };
 
     // Registrar pago
     const handleRegisterPayment = async (debtor: Debtor, amount: number) => {
         if (amount <= 0) {
-            alert("Monto inválido");
+            showAlert("Error", "Monto inválido", "error");
             return;
         }
         try {
@@ -147,9 +144,10 @@ export default function DebtorsTable({
             );
 
             setEditingDebtorId(null);
-            setPaymentAmount(0);
+            showAlert("Éxito", "Pago registrado correctamente", "success");
         } catch (error) {
             console.error("Error al registrar pago:", error);
+            showAlert("Error", "Error al registrar el pago", "error");
         }
     };
 
@@ -180,8 +178,10 @@ export default function DebtorsTable({
             setNewDebtorName("");
             setNewDebtorNumero("");
             setShowAddForm(false);
+            showAlert("Éxito", "Deudor agregado correctamente", "success");
         } catch (err) {
             console.error("Error agregando deudor:", err);
+            showAlert("Error", "Error al agregar deudor", "error");
         }
     };
 
@@ -190,9 +190,10 @@ export default function DebtorsTable({
         try {
             await deleteDoc(doc(db, "debtors", id));
             setDebtors((prev) => prev.filter((d) => d.id !== id));
-            setConfirmDelete(null);
+            showAlert("Éxito", "Cliente eliminado", "success");
         } catch (err) {
             console.error("Error eliminando:", err);
+            showAlert("Error", "Error al eliminar cliente", "error");
         }
     };
 
@@ -220,9 +221,10 @@ export default function DebtorsTable({
                     d.id === debtorId ? { ...d, debts: updatedDebts, totalAmount: newTotal } : d
                 )
             );
-            setConfirmDelete(null);
+            showAlert("Éxito", "Registro de deuda eliminado", "success");
         } catch (err) {
             console.error("Error eliminando deuda:", err);
+            showAlert("Error", "Error al eliminar registro de deuda", "error");
         }
     };
 
@@ -367,7 +369,13 @@ export default function DebtorsTable({
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setConfirmDelete({ type: "debtor", debtorId: debtor.id });
+                                            showConfirm(
+                                                "Eliminar Cliente",
+                                                "¿Estás seguro de que querés eliminar este cliente permanentemente?",
+                                                () => handleDeleteDebtor(debtor.id),
+                                                "warning",
+                                                "Sí, eliminar"
+                                            );
                                         }}
                                         className="p-2.5 rounded-lg bg-secondary text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-2"
                                         title="Eliminar Cliente"
@@ -389,7 +397,13 @@ export default function DebtorsTable({
                                             <FaHistory className="text-primary" /> Historial de Movimientos
                                         </h4>
                                         <button
-                                            onClick={() => setConfirmDelete({ type: "history", debtorId: debtor.id })}
+                                            onClick={() => showConfirm(
+                                            "Limpiar Historial",
+                                            "¿Estás seguro de que querés eliminar TODO el historial de este cliente?",
+                                            () => handleClearHistory(debtor.id),
+                                            "warning",
+                                            "Sí, limpiar"
+                                        )}
                                             className="text-xs font-bold text-destructive hover:text-destructive-foreground hover:bg-destructive px-3 py-1.5 rounded-md transition-all"
                                         >
                                             Limpiar Historial
@@ -425,11 +439,13 @@ export default function DebtorsTable({
 
                                                             <button
                                                                 onClick={() =>
-                                                                    setConfirmDelete({
-                                                                        type: "debt",
-                                                                        debtorId: debtor.id,
-                                                                        debtIndex: i,
-                                                                    })
+                                                                    showConfirm(
+                                                                        "Eliminar Registro",
+                                                                        "¿Estás seguro de que querés eliminar este registro de deuda/pago?",
+                                                                        () => handleDeleteDebt(debtor.id, i),
+                                                                        "warning",
+                                                                        "Sí, eliminar"
+                                                                    )
                                                                 }
                                                                 className="text-muted-foreground hover:text-destructive transition-colors p-1"
                                                                 title="Eliminar registro"
@@ -468,46 +484,7 @@ export default function DebtorsTable({
                     )))}
             </div>
 
-            {/* MODAL CONFIRMACIÓN ELIMINAR */}
-            {confirmDelete && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-card border border-border p-8 rounded-2xl w-full max-w-md shadow-2xl animate-scale-up">
-                        <h2 className="text-xl font-bold mb-2 text-card-foreground">Atención</h2>
-                        <p className="text-muted-foreground mb-6">
-                            {confirmDelete.type === "debtor"
-                                ? "¿Estás seguro de que querés eliminar este cliente permanentemente?"
-                                : confirmDelete.type === "history"
-                                    ? "¿Estás seguro de que querés eliminar TODO el historial de este cliente?"
-                                    : "¿Estás seguro de que querés eliminar este registro de deuda/pago?"}
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setConfirmDelete(null)}
-                                className="flex-1 px-4 py-3 rounded-xl bg-secondary text-secondary-foreground font-bold hover:bg-secondary/80 transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (confirmDelete.type === "debtor") {
-                                        handleDeleteDebtor(confirmDelete.debtorId);
-                                    } else if (confirmDelete.type === "history") {
-                                        handleClearHistory(confirmDelete.debtorId);
-                                    } else if (
-                                        confirmDelete.type === "debt" &&
-                                        confirmDelete.debtIndex !== undefined
-                                    ) {
-                                        handleDeleteDebt(confirmDelete.debtorId, confirmDelete.debtIndex);
-                                    }
-                                }}
-                                className="flex-1 px-4 py-3 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold transition-colors shadow-lg shadow-destructive/20"
-                            >
-                                Eliminar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             {/* MODAL DE PAGO */}
             {editingDebtorId && (
@@ -526,8 +503,9 @@ export default function DebtorsTable({
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                                 <input
                                     type="number"
-                                    value={paymentAmount}
-                                    onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                                    value={paymentAmount === 0 ? "" : paymentAmount}
+                                    onChange={(e) => setPaymentAmount(e.target.value === "" ? 0 : Number(e.target.value))}
+                                    onFocus={(e) => e.target.select()}
                                     className="w-full p-4 pl-8 bg-input/50 border border-input rounded-xl text-foreground text-lg font-bold focus:border-green-500 outline-none transition-colors"
                                     autoFocus
                                 />
@@ -559,6 +537,7 @@ export default function DebtorsTable({
                     </div>
                 </div>
             )}
+            {AlertComponent}
         </div>
     );
 }

@@ -26,7 +26,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         { 
             element: '#sidebar-logo', 
             popover: { 
-                title: 'Bienvenido a Lo de Marta', 
+                title: 'Bienvenido a El Linaje Kiosko', 
                 description: 'Este es el panel principal de administración. Aquí podrás navegar por todas las secciones de tu sistema.',
                 popoverClass: 'driverjs-theme'
             } 

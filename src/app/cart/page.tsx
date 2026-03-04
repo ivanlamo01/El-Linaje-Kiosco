@@ -792,6 +792,7 @@ function Cart() {
                                       Math.max(1, parseInt(e.target.value) || 1)
                                     )
                                   }
+                                  onFocus={(e) => e.target.select()}
                                   className="w-16 p-2 text-center bg-input border border-border rounded-lg text-foreground focus:border-primary outline-none"
                                 />
                               </div>

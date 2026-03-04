@@ -5,6 +5,7 @@ import { collection, getDocs, Timestamp, doc, deleteDoc, updateDoc } from "fireb
 import { db } from "../config/firebase";
 import { useAuthContext } from "../Context/AuthContext";
 import { FaUserShield, FaUser, FaEnvelope, FaPhone, FaClock, FaTrash, FaLock, FaExclamationTriangle, FaEdit } from "react-icons/fa";
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 import type { Permissions } from "../types/authTypes";
 
 interface UserData {
@@ -25,6 +26,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [tempPermissions, setTempPermissions] = useState<Permissions>({});
+  const { showAlert, showConfirm, AlertComponent } = useCustomAlert();
 
   const permissionList: { key: keyof Permissions; label: string }[] = [
     { key: "inventario", label: "Inventario" },
@@ -93,22 +95,31 @@ export default function UsersPage() {
         )
       );
       setEditingUser(null);
+      showAlert("Éxito", "Permisos actualizados correctamente", "success");
     } catch (error) {
       console.error("Error updating permissions", error);
-      alert("Error actualizando permisos");
+      showAlert("Error", "Error actualizando permisos", "error");
     }
   };
 
   const handleDeleteUser = async (uid: string) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
-      try {
-        await deleteDoc(doc(db, "Usuarios", uid));
-        setUsers(prev => prev.filter(u => u.uid !== uid));
-      } catch (error) {
-        console.error("Error eliminando usuario", error);
-        alert("Error eliminando usuario");
-      }
-    }
+    showConfirm(
+      "Eliminar Usuario",
+      "¿Estás seguro de que deseas eliminar este usuario?",
+      async () => {
+        try {
+          await deleteDoc(doc(db, "Usuarios", uid));
+          setUsers(prev => prev.filter(u => u.uid !== uid));
+          showAlert("Éxito", "Usuario eliminado", "success");
+        } catch (error) {
+          console.error("Error eliminando usuario", error);
+          showAlert("Error", "Error eliminando usuario", "error");
+        }
+      },
+      "warning",
+      "Eliminar",
+      "Cancelar"
+    );
   }
 
   // --- Loading ---
@@ -277,6 +288,7 @@ export default function UsersPage() {
           </div>
         )}
       </div>
+      {AlertComponent}
     </div>
   );
 }

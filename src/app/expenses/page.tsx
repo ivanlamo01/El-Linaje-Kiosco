@@ -224,6 +224,7 @@ const ExpensesTable = () => {
                     placeholder="0.00"
                     value={newExpense.amount}
                     onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                    onFocus={(e) => e.target.select()}
                     className="w-full pl-10 pr-4 py-3 bg-input border border-input rounded-xl focus:border-primary outline-none transition-colors text-foreground placeholder:text-muted-foreground"
                   />
                 </div>

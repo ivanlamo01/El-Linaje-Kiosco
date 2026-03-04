@@ -102,8 +102,9 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
                                     type="number"
                                     placeholder="0.00"
                                     className="w-full p-4 pl-8 bg-input border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-foreground text-lg font-bold"
-                                    value={price}
-                                    onChange={(e) => setPrice(Number(e.target.value))}
+                                    value={price === 0 ? "" : price}
+                                    onChange={(e) => setPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                                    onFocus={(e) => e.target.select()}
                                     required
                                     min="0"
                                 />
@@ -136,8 +137,9 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
                                     type="number"
                                     placeholder="Cant."
                                     className="w-full p-4 pl-8 bg-input border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-foreground text-lg font-bold"
-                                    value={stock}
-                                    onChange={(e) => setStock(Number(e.target.value))}
+                                    value={stock === 0 ? "" : stock}
+                                    onChange={(e) => setStock(e.target.value === "" ? "" : Number(e.target.value))}
+                                    onFocus={(e) => e.target.select()}
                                     required
                                     min="0"
                                 />
