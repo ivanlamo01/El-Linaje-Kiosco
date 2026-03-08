@@ -7,23 +7,13 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-const {setGlobalOptions} = require("firebase-functions");
+const { setGlobalOptions } = require("firebase-functions");
 const functions = require("firebase-functions/v1");
-const {defineSecret} = require("firebase-functions/params");
+const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+// admin.initializeApp() already called below
 
 admin.initializeApp();
 
@@ -140,72 +130,119 @@ async function deleteRemoteDocsByBarcode(remoteDb, barcode) {
 	await Promise.all(matches.map((ref) => ref.delete()));
 }
 
-async function syncProductChange(change, context, sourceCollection) {
-	try {
-		const before = change.before.exists ? change.before.data() : null;
-		const after = change.after.exists ? change.after.data() : null;
+/**
+ * Si un producto es marcado como 'resto' y el stock cambia, 
+ * informamos al Restaurante enviando syncSource: 'kiosco' para evitar bucles.
+ */
+exports.syncStockToResto = functions
+	.runWith({ secrets: [remoteServiceAccount] })
+	.firestore.document("Productos/{productId}")
+	.onUpdate(async (change, context) => {
+		const before = change.before.data();
+		const after = change.after.data();
 
-		const syncSourceIsRemote =
-			(after && after.syncSource === REMOTE_SOURCE) ||
-			(before && before.syncSource === REMOTE_SOURCE);
-		const syncedAtChanged = !isSameTimestamp(
-			before && before.syncedAt,
-			after && after.syncedAt
-		);
-		if (syncSourceIsRemote && syncedAtChanged) {
-			return;
+		// Solo si es un producto del restaurante
+		if (after.syncSource !== REMOTE_SOURCE) return;
+
+		// Solo si cambió el stock
+		if (before.stock === after.stock) return;
+
+		// Evitar bucle si el cambio viene de un proceso que ya marcó la fuente como 'kiosco'
+		// Aunque en el Kiosco el syncSource debería seguir siendo 'resto' para estos items,
+		// las actualizaciones HACIA el resto llevarán syncSource: 'kiosco'.
+
+		const barcode = getBarcode(after);
+		if (!barcode) return;
+
+		try {
+			const remoteApp = getRemoteApp(remoteServiceAccount.value());
+			const remoteDb = remoteApp.firestore();
+
+			const matches = await collectRemoteDocsByBarcode(remoteDb, barcode);
+			if (matches.length === 0) {
+				logger.warn("Producto 'resto' no encontrado en Restaurante para actualizar stock", { barcode });
+				return;
+			}
+
+			// Actualizamos el stock en el Restaurante
+			// IMPORTANTE: Enviamos syncSource: 'kiosco' para que el Restaurante sepa que no debe re-enviarlo
+			await matches[0].update({
+				stock: Number(after.stock),
+				syncSource: LOCAL_SOURCE,
+				syncedAt: admin.firestore.FieldValue.serverTimestamp()
+			});
+
+			logger.info("Stock sincronizado con Restaurante", { barcode, newStock: after.stock });
+		} catch (err) {
+			logger.error("Error sincronizando stock hacia Restaurante", {
+				error: err instanceof Error ? err.message : String(err),
+				barcode
+			});
 		}
+	});
+
+/**
+ * Handle incoming products from Restaurant.
+ * Merges by barcode and deletes the temporary document.
+ */
+exports.handleRestoProductSync = functions
+	.firestore.document("Productos/{productId}")
+	.onCreate(async (snap, context) => {
+		const data = snap.data();
+
+		// Solo procesamos si viene del restaurante
+		if (data.syncSource !== REMOTE_SOURCE) return;
+
+		const barcode = getBarcode(data);
+		if (!barcode) return;
 
 		const localDb = admin.firestore();
-		const beforeCategoryName = before ? await resolveCategoryName(before, localDb) : "";
-		const afterCategoryName = after ? await resolveCategoryName(after, localDb) : "";
 
-		const wasBebida = isBeverageName(beforeCategoryName);
-		const isBebida = isBeverageName(afterCategoryName);
+		try {
+			// Buscar productos locales con el mismo código de barras que NO sean este nuevo doc
+			const querySnap = await localDb.collection("Productos")
+				.where("Barcode", "==", barcode)
+				.get();
 
-		if (!wasBebida && !isBebida) return;
+			let targetRef = null;
+			for (const doc of querySnap.docs) {
+				if (doc.id !== context.params.productId) {
+					targetRef = doc.ref;
+					break;
+				}
+			}
 
-		const barcode = getBarcode(after) || getBarcode(before);
-		if (!barcode) {
-			logger.warn("Producto sin barcode, no se sincroniza", {
-				productId: context.params.productId,
-				sourceCollection,
+			if (targetRef) {
+				// Actualizar el producto existente
+				await targetRef.update({
+					title: data.title || data.name || "",
+					price: Number(data.price || 0),
+					stock: Number(data.stock || 0),
+					categoryName: data.categoryName || data.categoria || "",
+					syncSource: REMOTE_SOURCE,
+					syncedAt: admin.firestore.FieldValue.serverTimestamp()
+				});
+				logger.info("Producto existente actualizado desde Resto", { barcode });
+			} else {
+				// Si no existe, este nuevo doc permanece, pero nos aseguramos que tenga los datos limpios
+				await snap.ref.update({
+					syncSource: REMOTE_SOURCE,
+					syncedAt: admin.firestore.FieldValue.serverTimestamp()
+				});
+				logger.info("Nuevo producto creado desde Resto", { barcode });
+				return; // No lo borramos si es el único
+			}
+
+			// Borramos el documento duplicado/temporal
+			await snap.ref.delete();
+
+		} catch (err) {
+			logger.error("Error en handleRestoProductSync", {
+				error: err instanceof Error ? err.message : String(err),
+				barcode
 			});
-			return;
 		}
-
-		const remoteApp = getRemoteApp(remoteServiceAccount.value());
-		const remoteDb = remoteApp.firestore();
-
-		if (!isBebida) {
-			await deleteRemoteDocsByBarcode(remoteDb, barcode);
-			return;
-		}
-
-		const remoteDocRef = await findOrCreateRemoteDoc(remoteDb, barcode);
-
-		const payload = cleanUndefined({
-			...(after || {}),
-			barcode: String(barcode),
-			Barcode: String(barcode),
-			categoria: afterCategoryName || undefined,
-			category: afterCategoryName || undefined,
-			categoryName: afterCategoryName || undefined,
-			categoryId: pickFirstString(after && after.category, after && after.categoria) || undefined,
-			stock: Number((after && after.stock) || 0),
-			syncSource: LOCAL_SOURCE,
-			syncedAt: admin.firestore.FieldValue.serverTimestamp(),
-		});
-
-		await remoteDocRef.set(payload, {merge: true});
-	} catch (err) {
-		logger.error("Error sincronizando bebidas", {
-			error: err instanceof Error ? err.message : String(err),
-			sourceCollection,
-			productId: context.params.productId,
-		});
-	}
-}
+	});
 
 function getRemoteApp(serviceAccountJson) {
 	const existing = admin.apps.find((app) => app.name === "remote");
@@ -219,23 +256,7 @@ function getRemoteApp(serviceAccountJson) {
 	}
 
 	return admin.initializeApp(
-			{ credential: admin.credential.cert(serviceAccount) },
-			"remote"
+		{ credential: admin.credential.cert(serviceAccount) },
+		"remote"
 	);
 }
-
-exports.syncBebidasToRemote = functions
-	.runWith({secrets: [remoteServiceAccount]})
-	.firestore.document("Productos/{productId}")
-	.onWrite(async (change, context) => {
-			return syncProductChange(change, context, "Productos");
-		});
-
-
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
-
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });

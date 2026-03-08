@@ -17,6 +17,7 @@ export interface ProductoData {
   title_normalized?: string;
   category_normalized?: string
   categoryName?: string; // nombre
+  syncSource?: 'kiosco' | 'resto';
   dateAdded?: Date | { seconds: number; nanoseconds: number } | string | number;
   [key: string]: unknown;
 }
