@@ -52,6 +52,11 @@ function pickFirstString(...values) {
 	return "";
 }
 
+function pickNonEmptyString(...values) {
+	const picked = pickFirstString(...values);
+	return picked ? picked : undefined;
+}
+
 async function resolveCategoryName(productData, localDb) {
 	const safeProduct = productData || {};
 	const directName = pickFirstString(
@@ -188,10 +193,7 @@ async function syncProductChange(change, context, sourceCollection) {
 			...(after || {}),
 			barcode: String(barcode),
 			Barcode: String(barcode),
-			categoria: afterCategoryName || undefined,
-			category: afterCategoryName || undefined,
-			categoryName: afterCategoryName || undefined,
-			categoryId: pickFirstString(after && after.category, after && after.categoria) || undefined,
+			categoryName: pickNonEmptyString(afterCategoryName),
 			stock: Number((after && after.stock) || 0),
 			syncSource: LOCAL_SOURCE,
 			syncedAt: admin.firestore.FieldValue.serverTimestamp(),
