@@ -79,8 +79,10 @@ const Tabla: React.FC = () => {
           stock: item.stock ?? 0,
           price: item.price ?? 0,
           category: item.category ?? "",
+          categoryName: (item as any).categoryName,
           Barcode: item.Barcode ?? "",
           variablePrice: item.variablePrice,
+          syncSource: (item as any).syncSource,
         }));
 
         setAllProductos(productosAdaptados);
@@ -455,11 +457,12 @@ const Tabla: React.FC = () => {
                 <Producto
                   key={product.id}
                   {...product}
-                  categoryName={categoriasMap[product.category] || "Sin Categoría"}
+                  categoryName={categoriasMap[product.category] || product.categoryName || "Sin Categoría"}
                   isSelected={selectedIds.has(product.id)}
                   onSelect={(checked) => handleSelectProduct(product.id, checked)}
                   onEdit={() => setEditingProduct(product)}
                   onDelete={() => handleDeleteProduct(product.id)}
+                  syncSource={product.syncSource}
                 />
               ))}
               {currentProducts.length === 0 && (
