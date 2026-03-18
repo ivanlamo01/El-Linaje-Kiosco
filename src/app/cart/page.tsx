@@ -19,7 +19,7 @@ import { parseBarcode } from "../lib/utils/barcodeParser";
 import { ProductoData } from "../types/productTypes";
 import { Note } from "../types/taskTypes";
 import { getNotes } from "../lib/services/notesServices";
-import { FaExclamationCircle, FaSearch, FaTrash, FaShoppingCart, FaTimes, FaPrint, FaFileInvoiceDollar } from "react-icons/fa";
+import { FaExclamationCircle, FaFileInvoiceDollar, FaPrint, FaQuestionCircle, FaSearch, FaShoppingCart, FaTimes, FaTrash } from "react-icons/fa";
 import TicketTemplate from "../Components/TicketTemplate";
 import { Timestamp } from "firebase/firestore";
 import { Sale } from "../types/saleTypes";
@@ -34,7 +34,7 @@ type Product = {
 
 // Dummy business data (can be moved to a context or config like in other files)
 const businessData = {
-  name: process.env.NEXT_PUBLIC_BUSINESS_NAME || "Lo de Marta",
+  name: process.env.NEXT_PUBLIC_BUSINESS_NAME || "Lo de Martha",
   cuit: process.env.NEXT_PUBLIC_BUSINESS_CUIT || "-",
   address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "-",
   startActivity: process.env.NEXT_PUBLIC_BUSINESS_START_ACTIVITY || undefined,
@@ -92,15 +92,101 @@ function Cart() {
   const [notes, setNotes] = useState<Note[]>([]);
   // Estado para mapear id -> nombre de categoría
   const [categoriasMap, setCategoriasMap] = useState<Record<string, string>>({});
-
-  // Search Results State
-  // Search Results State
   const [searchResults, setSearchResults] = useState<(Product & { type: "product" | "promotion" })[]>([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
+
+  // --- AUTOCOMPLETE STATE ---
+  const [suggestions, setSuggestions] = useState<(Product & { type: "product" | "promotion" })[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  // ---------------------------
 
   // Print Modal State
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+  const [isPrintingTicket, setIsPrintingTicket] = useState(false);
+  const printTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // --- Billing Modal State ---
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const IVA_OPTIONS = [
+    { id: 5, rate: 21, label: "21% (General)" },
+    { id: 4, rate: 10.5, label: "10.5%" },
+    { id: 6, rate: 27, label: "27%" },
+    { id: 8, rate: 5, label: "5%" },
+    { id: 9, rate: 2.5, label: "2.5%" },
+    { id: 3, rate: 0, label: "0% (Exento/No gravado)" },
+  ];
+  const [billingData, setBillingData] = useState({
+      cbteTipo: 6, // Default B (was 11)
+      docTipo: 99,  // Default Consumidor Final
+      docNro: "",
+      ivaId: 5,
+      ivaRate: 21,
+  });
+  const CIGARETTE_IVA_BASE_FACTOR = 0.3;
+  const [activePos, setActivePos] = useState<number | null>(null);
+  const formatArs = (value: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(Number.isFinite(value) ? value : 0);
+  const round2 = (value: number) => Number((Number.isFinite(value) ? value : 0).toFixed(2));
+  const isCigaretteItem = (item: Sale["products"][number]) => {
+    if (item.isCigarette) return true;
+    return String(item.category || "").trim().toLowerCase() === "cigarrillos";
+  };
+  const billingTotal = Number(completedSale?.total || 0);
+  const selectedIvaRate = Number(billingData.ivaRate || 0);
+  const taxPreview = (() => {
+    const hasTax = billingData.cbteTipo === 1 || billingData.cbteTipo === 6;
+    if (!hasTax) {
+      return {
+        neto: round2(billingTotal),
+        iva: 0,
+        tribTotal: 0,
+      };
+    }
+
+    const products = completedSale?.products || [];
+    if (!products.length) {
+      const neto = selectedIvaRate > 0
+        ? round2(billingTotal / (1 + selectedIvaRate / 100))
+        : round2(billingTotal);
+      const iva = round2(billingTotal - neto);
+      return {
+        neto,
+        iva,
+        tribTotal: 0,
+      };
+    }
+
+    let iva = 0;
+
+    for (const item of products) {
+      const qty = Number(item.quantity || 0);
+      const price = Number(item.price || 0);
+      if (!Number.isFinite(qty) || !Number.isFinite(price) || qty <= 0 || price < 0) continue;
+
+      const lineTotal = round2(qty * price);
+      const isCigarette = isCigaretteItem(item);
+      if (selectedIvaRate <= 0) continue;
+
+      if (isCigarette) {
+        const ivaBase = round2(lineTotal * CIGARETTE_IVA_BASE_FACTOR);
+        iva = round2(iva + round2(ivaBase * (selectedIvaRate / 100)));
+        continue;
+      }
+
+      const lineNet = round2(lineTotal / (1 + selectedIvaRate / 100));
+      iva = round2(iva + round2(lineTotal - lineNet));
+    }
+
+    const tribTotal = 0;
+    const neto = round2(billingTotal - iva);
+
+    return {
+      neto,
+      iva,
+      tribTotal,
+    };
+  })();
 
   // Local Catalog State (Client-side Search Index)
   const [catalog, setCatalog] = useState<(Product & { type: "product" | "promotion" })[]>([]);
@@ -145,14 +231,39 @@ function Cart() {
   };
   // ---------------------------
 
+  // --- AUTOCOMPLETE LOGIC ---
+  useEffect(() => {
+    const term = title.trim().toLowerCase();
+    if (!term || term.length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const termClean = term.replace(/\s+/g, "");
+
+    const filtered = catalog.filter(item => {
+      const itemTitle = (item.data.title || "").toLowerCase();
+      if (itemTitle.includes(term)) return true;
+      const itemTitleClean = itemTitle.replace(/\s+/g, "");
+      if (itemTitleClean.includes(termClean)) return true;
+      return false;
+    }).slice(0, 10); // Limit to 10 suggestions
+
+    setSuggestions(filtered);
+    setShowSuggestions(filtered.length > 0);
+    setSelectedIndex(-1);
+  }, [title, catalog]);
+  // ---------------------------
+
   // Load Catalog on Mount
   useEffect(() => {
     const loadCatalog = async () => {
       try {
         // 1. Fetch Products via Unified Service
-        console.log("🛒 [Cart] Loading products...");
+        console.log("[Cart] Loading products...");
         const products = await productService.getAll();
-        console.log("🛒 [Cart] Products loaded:", products.length);
+        console.log("[Cart] Products loaded:", products.length);
 
         const mappedProducts = products.map(p => ({
           id: p.id,
@@ -174,7 +285,7 @@ function Cart() {
 
         setCatalog([...mappedProducts, ...mappedPromos]);
         setIsCatalogLoaded(true);
-        console.log("🛒 [Cart] Catalog ready. Total items:", mappedProducts.length + mappedPromos.length);
+        console.log("[Cart] Catalog ready. Total items:", mappedProducts.length + mappedPromos.length);
       } catch (error) {
         console.error("Error loading catalog:", error);
         showAlert("danger", "Error al cargar el catálogo de productos");
@@ -204,7 +315,7 @@ function Cart() {
     fetchCategorias();
   }, []);
 
-  // ✅ Cargar deudores existentes
+  // Cargar deudores existentes
   useEffect(() => {
     const fetchDebtors = async () => {
       try {
@@ -279,6 +390,8 @@ function Cart() {
 
   const handleSearchByTitle = async (event: FormEvent) => {
     event.preventDefault();
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
     const term = title.trim().toLowerCase();
     if (!term) return;
 
@@ -330,12 +443,54 @@ function Cart() {
     setSearchResults([]);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      if (selectedIndex >= 0) {
+        e.preventDefault();
+        const selected = suggestions[selectedIndex];
+        handleAddToCart({
+          id: selected.id,
+          data: selected.data,
+          description: selected.data.description
+        });
+        setTitle("");
+        setShowSuggestions(false);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (selected: (Product & { type: "product" | "promotion" })) => {
+    handleAddToCart({
+      id: selected.id,
+      data: selected.data,
+      description: selected.data.description
+    });
+    setTitle("");
+    setShowSuggestions(false);
+  };
+
   const handleAddToCart = (product: Product) => {
     const categoryId = product.data?.category; // ID
     const categoryName = categoriasMap[categoryId] ?? ""; // Nombre
+    const normalizedCategoryName = categoryName.trim().toLowerCase();
 
     const runAddToCart = async () => {
-      if (categoryName === "Almacen" || categoryName === "Devolucion") {
+      if (
+        normalizedCategoryName === "variable" ||
+        normalizedCategoryName === "variables" ||
+        normalizedCategoryName === "devolucion" ||
+        normalizedCategoryName === "devolución"
+      ) {
         const enteredPrice = await showPrompt(
           `Precio para ${categoryName}`,
           "Ingrese el precio del producto:",
@@ -353,14 +508,15 @@ function Cart() {
           addToCart(
             product,
             parseFloat(enteredPrice),
-            enteredDescription || product.data?.description || ""
+            enteredDescription || product.data?.description || "",
+            true
           );
         } else if (enteredPrice !== null) {
           showAlert("danger", "Por favor, ingrese un precio válido.");
         }
       }
-      // 🔥 Caso categoría PESO
-      else if (categoryName === "peso") {
+      // Caso categoría PESO
+      else if (normalizedCategoryName === "peso") {
         const enteredWeight = await showPrompt(
           `Peso para ${product.data?.description || "Producto"}`,
           "Ingrese el peso en gramos:",
@@ -371,7 +527,7 @@ function Cart() {
         if (enteredWeight && !isNaN(Number(enteredWeight))) {
           const weightGrams = parseFloat(enteredWeight);
 
-          // ⚖️ asumimos que product.data.price es el precio por gramo
+          // Asumimos que product.data.price es el precio por gramo
           const totalPrice = weightGrams * (product.data?.price ?? 0);
 
           addToCart(
@@ -437,7 +593,7 @@ function Cart() {
     triggerAlert(title, text, type);
   };
 
-  // ✅ Confirmar compra
+  // Confirmar compra
   const confirmPurchase = async () => {
     if (!paymentMethod) {
       setPaymentError(true);
@@ -474,8 +630,9 @@ function Cart() {
 
     try {
       setLoading(true);
+      const lowStockProducts: string[] = [];
 
-      // ✅ Actualizar stock
+      // Actualizar stock
       for (const item of cart) {
         if (item?.data?.Barcode) {
           const productOrPromotion = await getProductByBarcode(item.data.Barcode);
@@ -490,15 +647,12 @@ function Cart() {
                   productInPromo.data.stock -
                   promoProduct.quantity * item.quantity;
 
-                if (newStock >= 0) {
-                  await productService.updateStock(productInPromo.id, newStock);
-                } else {
-                  showAlert(
-                    "danger",
-                    `No hay suficiente stock para ${productInPromo.data.title}`
-                  );
-                  setLoading(false);
-                  return;
+                // Allow sale even if stock is negative
+                await productService.updateStock(productInPromo.id, newStock);
+
+                // Low stock warning
+                if (newStock <= 5) {
+                  lowStockProducts.push(`${productInPromo.data.title} (Queda: ${newStock.toFixed(2)})`);
                 }
               }
             } else {
@@ -518,23 +672,32 @@ function Cart() {
 
               const newStock = productOrPromotion.data.stock - quantityToDeduct;
 
-              if (newStock >= 0) {
-                await productService.updateStock(productOrPromotion.id, newStock);
-              } else {
-                showAlert(
-                  "danger",
-                  `No hay suficiente stock para ${productOrPromotion.data.title}`
-                );
-                setLoading(false);
-                return;
+              // Allow sale even if stock is negative
+              await productService.updateStock(productOrPromotion.id, newStock);
+
+              // Low stock warning (stock <= 5 or newStock <= 5)
+              if (newStock <= 5) {
+                lowStockProducts.push(`${productOrPromotion.data.title} (Queda: ${newStock.toFixed(2)})`);
               }
             }
           }
         }
       }
 
+      // Show low stock warnings if any
+      if (lowStockProducts.length > 0) {
+        await triggerAlert(
+          "Aviso de Revisión o Recarga",
+          "Los siguientes productos tienen stock bajo:\n" + lowStockProducts.join("\n"),
+          "warning"
+        );
+      }
+
       // 🧾 Preparar objeto para el ticket
       const ticketProducts = cart.map((item) => ({
+        category: String(categoriasMap[item.data.category] || "").trim().toLowerCase(),
+        isCigarette: String(categoriasMap[item.data.category] || "").trim().toLowerCase() === "cigarrillos",
+        tributeRate: 371.26,
         title: item.data.title,
         description: item.customDescription || "",
         price: Number(item.customPrice ?? item.data.price ?? 0),
@@ -549,11 +712,14 @@ function Cart() {
         products: ticketProducts
       };
 
-      // ✅ Guardar venta si no es deuda
+      // Guardar venta si no es deuda
       if (paymentMethod !== "Deuda") {
         const saleData = {
           total: total,
           items: cart.map((item) => ({
+            category: String(categoriasMap[item.data.category] || "").trim().toLowerCase(),
+            isCigarette: String(categoriasMap[item.data.category] || "").trim().toLowerCase() === "cigarrillos",
+            tributeRate: 371.26,
             title: item.data.title,
             description: item.customDescription || "",
             price: Number(item.customPrice ?? item.data.price ?? 0), // Guardar como número en el array
@@ -571,11 +737,14 @@ function Cart() {
         }
       }
 
-      // ✅ Guardar deuda usando debtorService (Web y Native)
+      // Guardar deuda usando debtorService (Web y Native)
       if (paymentMethod === "Deuda") {
         ticketSale.paymentMethod = `Deuda: ${debtorName}`;
 
         const productsForDebt = cart.map((item) => ({
+          category: String(categoriasMap[item.data.category] || "").trim().toLowerCase(),
+          isCigarette: String(categoriasMap[item.data.category] || "").trim().toLowerCase() === "cigarrillos",
+          tributeRate: 371.26,
           title: item.data.title,
           description: item.customDescription || "",
           price: item.customPrice ?? item.data.price ?? 0,
@@ -613,15 +782,67 @@ function Cart() {
   };
 
   const handlePrintTicket = () => {
-    setTimeout(() => {
+    if (isPrintingTicket) return;
+
+    setIsPrintingTicket(true);
+    printTimeoutRef.current = setTimeout(() => {
       window.print();
     }, 300);
   };
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setIsPrintingTicket(false);
+
+      if (printTimeoutRef.current) {
+        clearTimeout(printTimeoutRef.current);
+        printTimeoutRef.current = null;
+      }
+    };
+
+    window.addEventListener("afterprint", handleAfterPrint);
+
+    return () => {
+      window.removeEventListener("afterprint", handleAfterPrint);
+
+      if (printTimeoutRef.current) {
+        clearTimeout(printTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   const handleGenerateInvoice = async () => {
     if (!completedSale) return;
+    
+    // Open Billing Modal first
+    setShowPrintModal(false); // Close print modal to show billing modal
+    setBillingData({
+        cbteTipo: 6, // Default B
+        docTipo: 99,
+        docNro: "",
+      ivaId: 5,
+      ivaRate: 21,
+    });
+    setShowBillingModal(true);
+  };
+
+  const confirmGenerateInvoice = async () => {
+    if (!completedSale) return;
+
+    // Basic validation
+    if (billingData.cbteTipo === 1 && !billingData.docNro) {
+        showAlert("danger", "Para Factura A es obligatorio el número de documento (CUIT/DNI).");
+        return;
+    }
+
+    if ((billingData.cbteTipo === 1 || billingData.cbteTipo === 6) && billingData.ivaId === 3 && billingData.docTipo === 99) {
+      showAlert("danger", "No se permite IVA 0% en Factura A/B para Consumidor Final sin identificar. Indicá DNI/CUIT o seleccioná una alícuota gravada.");
+      return;
+    }
+
+    setShowBillingModal(false);
     setGeneratingInvoice(true);
     try {
       const res = await fetch("/api/afip/facturar", {
@@ -629,10 +850,16 @@ function Cart() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           importe: Number(completedSale.total),
-          items: completedSale.products,
-          docTipo: 99, // Consumidor Final default
-          docNro: 0,
-          cbteTipo: 11, // Factura C default
+          items: completedSale.products.map((item) => ({
+            ...item,
+            ivaId: billingData.ivaId,
+            ivaRate: billingData.ivaRate,
+          })),
+          docTipo: Number(billingData.docTipo),
+          docNro: Number(billingData.docNro || 0),
+          cbteTipo: Number(billingData.cbteTipo),
+          ivaId: Number(billingData.ivaId),
+          ivaRate: Number(billingData.ivaRate),
           concepto: 1,
           saleId: completedSale.id // Link invoice to sale
         })
@@ -672,11 +899,27 @@ function Cart() {
   }, [cart, calculateTotal]);
 
   useEffect(() => {
+    const fetchActivePos = async () => {
+      try {
+        const res = await fetch("/api/afip/punto-venta");
+        const data = await res.json();
+        if (res.ok && data?.data?.puntoVenta) {
+          setActivePos(Number(data.data.puntoVenta));
+        }
+      } catch (error) {
+        console.warn("No se pudo obtener el punto de venta activo", error);
+      }
+    };
+
+    fetchActivePos();
+  }, []);
+
+  useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   return (
-    <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300">
+    <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300">
       <div className="flex flex-col lg:flex-row gap-8 max-w-[1600px] mx-auto">
 
         {/* --- Lado izquierdo (Productos) --- */}
@@ -693,7 +936,7 @@ function Cart() {
                 className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/40 px-3 py-1.5 rounded-lg transition-colors font-medium text-sm shadow-sm"
                 title="Ver ayuda de punto de venta"
               >
-                <span>❓</span>
+                <FaQuestionCircle />
                 <span>Tutorial</span>
               </button>
             </div>
@@ -704,7 +947,7 @@ function Cart() {
                 <input
                   type="text"
                   value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
+                  onChange={(e) => setBarcode(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="Escaneá código de barras..."
                   className="w-full p-4 pl-12 rounded-xl bg-input border border-input text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground"
                   ref={inputRef}
@@ -718,10 +961,40 @@ function Cart() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => title.length > 0 && setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   placeholder="Buscar por nombre..."
                   className="w-full p-4 pl-12 rounded-xl bg-input border border-input text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground"
                 />
                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-hover:text-primary transition-colors" />
+
+                {/* Autocomplete Suggestions */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden max-h-[400px] overflow-y-auto">
+                    {suggestions.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className={`p-4 cursor-pointer flex justify-between items-center transition-colors border-b last:border-0 border-border
+                          ${index === selectedIndex ? 'bg-primary/20 bg-muted-foreground/10' : 'hover:bg-muted/50'}
+                        `}
+                        onClick={() => handleSelectSuggestion(item)}
+                        onMouseEnter={() => setSelectedIndex(index)}
+                      >
+                        <div>
+                          <p className="font-bold text-foreground">{item.data.title}</p>
+                          <p className="text-xs text-muted-foreground">{item.data.Barcode} • {categoriasMap[item.data.category] || 'Sin categoría'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-primary">${item.data.price}</p>
+                          <p className={`text-[10px] ${item.data.stock <= 5 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                            Stock: {item.data.stock}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </form>
             </div>
           </div>
@@ -792,7 +1065,6 @@ function Cart() {
                                       Math.max(1, parseInt(e.target.value) || 1)
                                     )
                                   }
-                                  onFocus={(e) => e.target.select()}
                                   className="w-16 p-2 text-center bg-input border border-border rounded-lg text-foreground focus:border-primary outline-none"
                                 />
                               </div>
@@ -900,15 +1172,15 @@ function Cart() {
                   className="w-full p-3 bg-input border border-input rounded-xl text-foreground focus:border-primary outline-none cursor-pointer"
                 >
                   <option value="">Seleccione...</option>
-                  <option value="Efectivo">💵 Efectivo</option>
-                  <option value="Transferencia">💳 Transferencia</option>
-                  <option value="Deuda">📝 Deuda (Cuenta Corriente)</option>
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="Transferencia">Transferencia</option>
+                  <option value="Deuda">Deuda (Cuenta Corriente)</option>
                 </select>
               </div>
 
               {paymentError && !paymentMethod && (
-                <p className="text-destructive text-sm">
-                  ⚠️ Debe seleccionar un método de pago
+                <p className="text-destructive text-sm flex items-center gap-2">
+                  <FaExclamationCircle /> Debe seleccionar un método de pago
                 </p>
               )}
 
@@ -1032,7 +1304,7 @@ function Cart() {
 
       {/* 🧾 Modal de Impresión de Ticket */}
       {showPrintModal && completedSale && (
-        <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-[100] p-4 animate-fade-in print:bg-white print:p-0">
+        <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-100 p-4 animate-fade-in print:bg-white print:p-0">
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl animate-scale-up text-center print:hidden">
             <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
               <FaPrint />
@@ -1054,9 +1326,9 @@ function Cart() {
               <button
                 onClick={handlePrintTicket}
                 className="py-3 bg-primary text-primary-foreground hover:opacity-90 rounded-xl font-bold transition-colors shadow-md flex items-center justify-center gap-2"
-                disabled={generatingInvoice}
+                disabled={generatingInvoice || isPrintingTicket}
               >
-                <FaPrint /> Imprimir Ticket
+                <FaPrint /> {isPrintingTicket ? "Abriendo impresión..." : "Imprimir Ticket"}
               </button>
 
               <button
@@ -1083,6 +1355,117 @@ function Cart() {
                     }
                 `}</style>
             <TicketTemplate sale={completedSale} businessData={businessData} />
+          </div>
+        </div>
+      )}
+
+      {/* 🧾 Modal de Facturación */}
+      {showBillingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card w-full max-w-md rounded-2xl shadow-xl border border-border flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-xl font-bold text-card-foreground">Generar Factura AFIP</h3>
+              <p className="text-muted-foreground text-sm mt-1">Seleccione el tipo de comprobante y destinatario.</p>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium mb-2">Tipo de Factura</label>
+                <select
+                  className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                  value={billingData.cbteTipo}
+                  onChange={(e) => setBillingData({ ...billingData, cbteTipo: Number(e.target.value) })}
+                >
+                  <option value={6}>Factura B (Resp. Inscripto a Cons. Final/Exento)</option>
+                  <option value={1}>Factura A (Resp. Inscripto a Resp. Inscripto)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Alícuota de IVA</label>
+                <select
+                  className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                  value={billingData.ivaId}
+                  onChange={(e) => {
+                    const selected = IVA_OPTIONS.find((opt) => opt.id === Number(e.target.value));
+                    if (!selected) return;
+                    setBillingData({ ...billingData, ivaId: selected.id, ivaRate: selected.rate });
+                  }}
+                >
+                  {IVA_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id}>{opt.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Punto de venta activo: {String(activePos ?? 10).padStart(5, "0")}
+                </p>
+                <div className="mt-3 rounded-xl border border-amber-400/40 bg-linear-to-br from-zinc-900 to-zinc-800 px-4 py-3 text-amber-50 shadow-lg shadow-black/25">
+                  <div className="flex items-center justify-between text-lg font-semibold">
+                    <span>Subtotal Neto:</span>
+                    <span>{formatArs(taxPreview.neto)}</span>
+                  </div>
+                  <div className="mt-2 border-l-2 border-amber-300/70 pl-3 text-sm">
+                    <p className="font-semibold text-amber-200">IVA {selectedIvaRate}%</p>
+                    <p className="flex items-center justify-between"><span>Base:</span><span>{formatArs(taxPreview.neto)}</span></p>
+                    <p className="flex items-center justify-between"><span>Cuota:</span><span>{formatArs(taxPreview.iva)}</span></p>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-3xl font-extrabold tracking-tight">
+                    <span>Total:</span>
+                    <span>{formatArs(billingTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {billingData.cbteTipo === 1 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm text-blue-600 dark:text-blue-400">
+                  ℹ️ Para Factura A es obligatorio ingresar DNI o CUIT.
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Tipo de Documento</label>
+                <select
+                  className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                  value={billingData.docTipo}
+                  onChange={(e) => setBillingData({ ...billingData, docTipo: Number(e.target.value) })}
+                >
+                  <option value={99}>Sin Identificar / Consumidor Final</option>
+                  <option value={96}>DNI</option>
+                  <option value={80}>CUIT</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Número de Documento</label>
+                <input
+                  type="number"
+                  className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                  placeholder="Ingrese DNI o CUIT sin guiones"
+                  value={billingData.docNro}
+                  onChange={(e) => setBillingData({ ...billingData, docNro: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-border flex justify-end gap-3 bg-muted/20 rounded-b-2xl">
+              <button
+                onClick={() => {
+                   setShowBillingModal(false);
+                   setShowPrintModal(true); // Return to print modal
+                }}
+                className="px-4 py-2 hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors"
+                disabled={generatingInvoice}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmGenerateInvoice}
+                className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg shadow-sm font-medium"
+                disabled={generatingInvoice}
+              >
+                Emitir Factura
+              </button>
+            </div>
           </div>
         </div>
       )}

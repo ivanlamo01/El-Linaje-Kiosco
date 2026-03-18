@@ -108,6 +108,19 @@ declare global {
                     docTipo: number;
                     docNro: number;
                     cbteTipo?: number;
+                    ivaId?: number;
+                    ivaRate?: number;
+                    fechaComprobante?: string;
+                    items?: Array<{
+                        title?: string;
+                        category?: string;
+                        quantity?: number | string;
+                        price?: number | string;
+                        ivaId?: number | string;
+                        ivaRate?: number | string;
+                        isCigarette?: boolean;
+                        tributeRate?: number | string;
+                    }>;
                 }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
             };
         };
@@ -175,7 +188,7 @@ class CapacitorDB implements DatabaseService {
 
         try {
             console.log('Initializing Capacitor SQLite...');
-            this.db = await this.sqlite.createConnection('el_linaje_kiosko', false, 'no-encryption', 1, false);
+            this.db = await this.sqlite.createConnection('almacen_mgd', false, 'no-encryption', 1, false);
             
             await this.db.open();
 

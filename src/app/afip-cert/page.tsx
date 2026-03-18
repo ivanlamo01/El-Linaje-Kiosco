@@ -13,9 +13,19 @@ import {
 } from 'react-icons/fa';
 import {
     setupAfipProduction,
+    authorizeWebServiceProduction,
     downloadCertificate,
     AuthWebServiceProductionData,
 } from '@/app/lib/afipCertification';
+
+const SERVICE_OPTIONS = [
+    { value: 'ws_sr_constancia_inscripcion', label: 'Padron - Constancia de Inscripcion (requerido para datos de CUIT)' },
+    { value: 'ws_sr_padron_a5', label: 'Padron A5 - Consulta de contribuyentes' },
+    { value: 'ws_sr_padron_a4', label: 'Padron A4 - Consulta de contribuyentes' },
+    { value: 'wsfe', label: 'WSFE - Facturación Electrónica' },
+    { value: 'wsfev1', label: 'WSFEv1 - Facturación Electrónica v1' },
+    { value: 'wsmtxca', label: 'WSMTXCA - Monotributo' },
+];
 
 export default function AfipCertificationPage() {
     const [formData, setFormData] = useState<AuthWebServiceProductionData>({
@@ -23,21 +33,36 @@ export default function AfipCertificationPage() {
         username: '',
         password: '',
         alias: 'afipsdk',
-        service: 'wsfe',
+        service: 'ws_sr_constancia_inscripcion',
+    });
+
+    // Formulario para solo autorizar (sin crear cert nuevo)
+    const [authOnlyData, setAuthOnlyData] = useState({
+        cuit: '',
+        username: '',
+        password: '',
+        alias: 'afipsdk',
+        service: 'ws_sr_constancia_inscripcion',
     });
 
     const [loading, setLoading] = useState(false);
+    const [authOnlyLoading, setAuthOnlyLoading] = useState(false);
     const [result, setResult] = useState<{
         certificate?: { cert: string; key: string };
         authorization?: { status: string };
         error?: string;
     } | null>(null);
+    const [authOnlyResult, setAuthOnlyResult] = useState<{
+        success?: boolean;
+        error?: string;
+    } | null>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value,
-        });
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleAuthOnlyChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setAuthOnlyData({ ...authOnlyData, [e.target.name]: e.target.value });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -53,12 +78,27 @@ export default function AfipCertificationPage() {
             });
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Error al procesar la solicitud';
-            setResult({
-                error: message,
-            });
+            setResult({ error: message });
             console.error("Detalle del error:", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAuthOnly = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAuthOnlyLoading(true);
+        setAuthOnlyResult(null);
+
+        try {
+            await authorizeWebServiceProduction(authOnlyData);
+            setAuthOnlyResult({ success: true });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Error al autorizar el servicio';
+            setAuthOnlyResult({ error: message });
+            console.error("Detalle del error:", error);
+        } finally {
+            setAuthOnlyLoading(false);
         }
     };
 
@@ -92,7 +132,7 @@ export default function AfipCertificationPage() {
 
                 {/* Main Form Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-                    <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <div className="p-6 border-b border-gray-100 bg-linear-to-r from-blue-50 to-indigo-50">
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center">
                                 <FaShieldAlt className="text-white text-xl" />
@@ -187,9 +227,9 @@ export default function AfipCertificationPage() {
                                     required
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
                                 >
-                                    <option value="wsfe">WSFE - Facturación Electrónica</option>
-                                    <option value="wsfev1">WSFEv1 - Facturación Electrónica v1</option>
-                                    <option value="wsmtxca">WSMTXCA - Monotributo</option>
+                                    {SERVICE_OPTIONS.map(o => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -293,6 +333,85 @@ export default function AfipCertificationPage() {
                     </div>
                 )}
 
+                {/* Auth-only Card */}
+                <div className="bg-white rounded-2xl shadow-sm border border-amber-200 overflow-hidden mb-6">
+                    <div className="p-6 border-b border-amber-100 bg-amber-50">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center">
+                                <FaKey className="text-white text-xl" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800">Autorizar servicio con certificado existente</h2>
+                                <p className="text-sm text-gray-600">Si ya tenés el certificado en .env, solo autorizá el servicio de padrón sin crear uno nuevo</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleAuthOnly} className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">CUIT <span className="text-red-500">*</span></label>
+                                <input type="text" name="cuit" value={authOnlyData.cuit} onChange={handleAuthOnlyChange} required placeholder="27313918144"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none transition-all" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Usuario (CUIT) <span className="text-red-500">*</span></label>
+                                <input type="text" name="username" value={authOnlyData.username} onChange={handleAuthOnlyChange} required placeholder="27313918144"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none transition-all" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña de AFIP <span className="text-red-500">*</span></label>
+                                <input type="password" name="password" value={authOnlyData.password} onChange={handleAuthOnlyChange} required placeholder="••••••••"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none transition-all" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Alias del certificado <span className="text-red-500">*</span></label>
+                                <input type="text" name="alias" value={authOnlyData.alias} onChange={handleAuthOnlyChange} required placeholder="afipsdk"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none transition-all" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Web Service <span className="text-red-500">*</span></label>
+                                <select name="service" value={authOnlyData.service} onChange={handleAuthOnlyChange} required
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none transition-all bg-white">
+                                    {SERVICE_OPTIONS.map(o => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="mt-6">
+                            <button type="submit" disabled={authOnlyLoading}
+                                className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                {authOnlyLoading ? (
+                                    <><svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>Autorizando...</>
+                                ) : (
+                                    <><FaShieldAlt />Autorizar servicio (sin crear cert nuevo)</>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+
+                    {authOnlyResult && (
+                        <div className={`mx-6 mb-6 p-4 rounded-xl border ${authOnlyResult.error ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                            {authOnlyResult.error ? (
+                                <div className="flex items-center gap-3">
+                                    <FaExclamationTriangle className="text-red-600 shrink-0" />
+                                    <p className="text-red-700 text-sm">{authOnlyResult.error}</p>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                    <FaCheckCircle className="text-green-600 shrink-0" />
+                                    <p className="text-green-700 font-medium">¡Servicio autorizado exitosamente! Recargá la factura para ver los datos fiscales.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 {/* Instructions Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-6 border-b border-gray-100 bg-gray-50">
@@ -301,7 +420,7 @@ export default function AfipCertificationPage() {
                     <div className="p-6">
                         <ol className="list-decimal list-inside space-y-3 text-gray-700">
                             <li>Asegúrate de tener credenciales válidas de AFIP (CUIT y contraseña)</li>
-                            <li>Selecciona el web service que deseas autorizar</li>
+                            <li>Selecciona el web service que deseas autorizar (para datos fiscales de facturas usa Padron)</li>
                             <li>Completa el formulario con tus datos</li>
                             <li>Haz clic en &quot;Generar Certificado y Autorizar&quot;</li>
                             <li>Descarga el certificado (.crt) y la clave privada (.key)</li>

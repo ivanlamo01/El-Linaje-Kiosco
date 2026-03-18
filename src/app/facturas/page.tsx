@@ -5,8 +5,8 @@ import { collection, query, orderBy, limit, getDocs, addDoc, doc, updateDoc, ser
 import { db } from "@/app/config/firebase";
 import { useAuthContext } from "../Context/AuthContext";
 import { formatCurrency } from "@/app/lib/utils/afipHelpers";
-import { FaFileInvoice, FaEye, FaArrowLeft, FaBan, FaExclamationTriangle } from "react-icons/fa";
-import { useCustomAlert } from "../../hooks/useCustomAlert";
+import { FaFileInvoice, FaEye, FaArrowLeft, FaBan, FaExclamationTriangle, FaReceipt } from "react-icons/fa";
+import CustomAlert, { AlertType } from "../Components/CustomAlert";
 
 interface Invoice {
     id: string;
@@ -22,6 +22,8 @@ interface Invoice {
     tipoComprobante?: number;
     status?: string;
     cae?: string;
+    impIVA?: number;
+    ivaSubtotales?: { id: number; rate: number; base: number; amount: number }[];
 }
 
 export default function FacturasList() {
@@ -30,7 +32,51 @@ export default function FacturasList() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
-    const { showAlert, showConfirm, AlertComponent } = useCustomAlert();
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: AlertType;
+        showCancel?: boolean;
+        confirmText?: string;
+        onConfirm: () => void;
+        onCancel?: () => void;
+    }>({
+        isOpen: false,
+        title: "",
+        message: "",
+        type: "info",
+        onConfirm: () => { },
+    });
+
+    const closeAlert = () => setAlertConfig((prev) => ({ ...prev, isOpen: false }));
+
+    const showMessage = (title: string, message: string, type: AlertType = "info") => {
+        setAlertConfig({
+            isOpen: true,
+            title,
+            message,
+            type,
+            confirmText: "Entendido",
+            onConfirm: closeAlert,
+        });
+    };
+
+    const showConfirm = (title: string, message: string, onConfirmAction: () => void) => {
+        setAlertConfig({
+            isOpen: true,
+            title,
+            message,
+            type: "warning",
+            showCancel: true,
+            confirmText: "Anular",
+            onConfirm: () => {
+                closeAlert();
+                onConfirmAction();
+            },
+            onCancel: closeAlert,
+        });
+    };
 
     useEffect(() => {
         if (isAdmin) {
@@ -51,91 +97,98 @@ export default function FacturasList() {
         }
     };
 
+    const executeAnular = async (invoice: Invoice) => {
+        setProcessingId(invoice.id);
+        try {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+
+            if (typeof window !== 'undefined' && window.electron && window.electron.afip) {
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-expect-error
+                const result = await window.electron.afip.crearNotaCreditoC({
+                    importe: invoice.importe,
+                    concepto: invoice.concepto,
+                    docNro: invoice.docNro,
+                    docTipo: invoice.docTipo,
+                    nroComprobanteOriginal: invoice.nroComprobante,
+                    tipoComprobanteOriginal: invoice.tipoComprobante,
+                    puntoVentaOriginal: invoice.puntoVenta,
+                    ivaSubtotales: invoice.ivaSubtotales || []
+                });
+
+                if (!result.success) throw new Error(result.error);
+
+                const ncData = result.data;
+
+                // 1. Update original invoice status
+                const invoiceRef = doc(db, "facturas", invoice.id);
+                await updateDoc(invoiceRef, { status: "anulada" });
+
+                // 2. Save Credit Note
+                await addDoc(collection(db, "facturas"), {
+                    ...ncData,
+                    importe: invoice.importe,
+                    concepto: invoice.concepto,
+                    docNro: invoice.docNro,
+                    docTipo: invoice.docTipo,
+                    nombre: invoice.nombre || null,
+                    tipo: 'NC',
+                    relatedInvoiceId: invoice.id,
+                    createdAt: serverTimestamp(),
+                    manual: true
+                });
+
+                showMessage("Factura anulada", `Nota de Crédito generada: ${ncData.nroComprobante}`, "success");
+
+            } else {
+                const res = await fetch("/api/afip/nota-credito", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        facturaId: invoice.id,
+                        importe: invoice.importe,
+                        concepto: invoice.concepto,
+                        docNro: invoice.docNro,
+                        docTipo: invoice.docTipo,
+                        nroComprobanteOriginal: invoice.nroComprobante,
+                        tipoComprobanteOriginal: invoice.tipoComprobante,
+                        puntoVentaOriginal: invoice.puntoVenta,
+                        ivaSubtotales: invoice.ivaSubtotales || []
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || "Error al anular factura");
+                }
+
+                showMessage("Factura anulada", `Nota de Crédito generada: ${data.data.nroComprobante}`, "success");
+            }
+
+            fetchInvoices(); // Refresh list
+
+        } catch (error: unknown) {
+            console.error("Error anulando factura:", error);
+            showMessage("Error", (error as Error).message, "error");
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
     const handleAnular = (invoice: Invoice) => {
         showConfirm(
-            "Anular Factura",
+            "Anular factura",
             `¿Estás seguro de que querés ANULAR la factura ${invoice.nroComprobante}? Esto generará una Nota de Crédito en AFIP.`,
-            async () => {
-                setProcessingId(invoice.id);
-                try {
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-
-                    if (typeof window !== 'undefined' && window.electron && window.electron.afip) {
-                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                        // @ts-expect-error
-                        const result = await window.electron.afip.crearNotaCreditoC({
-                            importe: invoice.importe,
-                            concepto: invoice.concepto,
-                            docNro: invoice.docNro,
-                            docTipo: invoice.docTipo,
-                            voucherAsociado: invoice.nroComprobante
-                        });
-
-                        if (!result.success) throw new Error(result.error);
-
-                        const ncData = result.data;
-
-                        // 1. Update original invoice status
-                        const invoiceRef = doc(db, "facturas", invoice.id);
-                        await updateDoc(invoiceRef, { status: "anulada" });
-
-                        // 2. Save Credit Note
-                        await addDoc(collection(db, "facturas"), {
-                            ...ncData,
-                            importe: invoice.importe,
-                            concepto: invoice.concepto,
-                            docNro: invoice.docNro,
-                            docTipo: invoice.docTipo,
-                            nombre: invoice.nombre || null,
-                            tipo: 'NC',
-                            relatedInvoiceId: invoice.id,
-                            createdAt: serverTimestamp(),
-                            manual: true
-                        });
-
-                        showAlert("Éxito", `Factura anulada con éxito. Nota de Crédito generada: ${ncData.nroComprobante}`, "success");
-
-                    } else {
-                        const res = await fetch("/api/afip/nota-credito", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                facturaId: invoice.id,
-                                importe: invoice.importe,
-                                concepto: invoice.concepto,
-                                docNro: invoice.docNro,
-                                docTipo: invoice.docTipo,
-                                nroComprobanteOriginal: invoice.nroComprobante
-                            })
-                        });
-
-                        const data = await res.json();
-
-                        if (!res.ok) {
-                            throw new Error(data.error || "Error al anular factura");
-                        }
-
-                        showAlert("Éxito", `Factura anulada con éxito. Nota de Crédito generada: ${data.data.nroComprobante}`, "success");
-                    }
-
-                    fetchInvoices(); // Refresh list
-
-                } catch (error: unknown) {
-                    console.error("Error anulando factura:", error);
-                    showAlert("Error", (error as Error).message, "error");
-                } finally {
-                    setProcessingId(null);
-                }
-            },
-            "warning",
-            "Sí, anular",
-            "Cancelar"
+            () => {
+                void executeAnular(invoice);
+            }
         );
     };
 
     if (!login) {
         return (
-            <div className="flex h-screen items-center justify-center p-6">
+            <div className="flex h-screen items-center justify-center bg-background p-6">
                 <div className="text-center bg-card border border-border p-8 rounded-2xl max-w-md w-full shadow-2xl">
                     <FaExclamationTriangle className="text-5xl text-muted-foreground mx-auto mb-4" />
                     <h2 className="text-xl font-bold text-foreground mb-2">Acceso Restringido</h2>
@@ -147,7 +200,7 @@ export default function FacturasList() {
 
     if (!isAdmin) {
         return (
-            <div className="flex h-screen items-center justify-center p-6">
+            <div className="flex h-screen items-center justify-center bg-background p-6">
                 <div className="text-center bg-card border border-border p-8 rounded-2xl max-w-md w-full shadow-2xl">
                     <FaExclamationTriangle className="text-5xl text-destructive mx-auto mb-4" />
                     <h2 className="text-xl font-bold text-foreground mb-2">Acceso Denegado</h2>
@@ -171,7 +224,7 @@ export default function FacturasList() {
     };
 
     return (
-        <div className="min-h-screen text-foreground p-6 lg:p-8">
+        <div className="min-h-screen bg-background text-foreground p-6 lg:p-8">
             <div className="max-w-6xl mx-auto">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
                     <div>
@@ -241,6 +294,15 @@ export default function FacturasList() {
                                                 >
                                                     <FaEye />
                                                 </Link>
+                                                {inv.tipo !== 'NC' && (
+                                                    <Link
+                                                        href={`/facturas/${inv.id}?view=ticket`}
+                                                        className="text-blue-600 hover:text-blue-500 p-2 transition-colors"
+                                                        title="Ver Ticket"
+                                                    >
+                                                        <FaReceipt />
+                                                    </Link>
+                                                )}
                                                 {inv.status !== 'anulada' && inv.tipo !== 'NC' && (
                                                     <button
                                                         onClick={() => handleAnular(inv)}
@@ -299,6 +361,14 @@ export default function FacturasList() {
                                     >
                                         <FaEye /> Ver
                                     </Link>
+                                    {inv.tipo !== 'NC' && (
+                                        <Link
+                                            href={`/facturas/${inv.id}?view=ticket`}
+                                            className="flex items-center justify-center gap-2 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-bold hover:bg-blue-200 transition-colors"
+                                        >
+                                            <FaReceipt /> Ticket
+                                        </Link>
+                                    )}
                                     {inv.status !== 'anulada' && inv.tipo !== 'NC' && (
                                         <button
                                             onClick={() => handleAnular(inv)}
@@ -314,7 +384,17 @@ export default function FacturasList() {
                     )}
                 </div>
             </div>
-            {AlertComponent}
+
+            <CustomAlert
+                isOpen={alertConfig.isOpen}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                showCancel={alertConfig.showCancel}
+                confirmText={alertConfig.confirmText}
+                onConfirm={alertConfig.onConfirm}
+                onCancel={alertConfig.onCancel}
+            />
         </div>
     );
 }

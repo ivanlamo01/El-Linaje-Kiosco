@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTutorial } from "../Context/TutorialContext";
 import { getSalesByRange, deleteSale } from "../lib/sales";
@@ -8,6 +8,10 @@ import CustomAlert, { AlertType } from "../Components/CustomAlert";
 import { Sale as SaleType } from "../types/saleTypes";
 import Pagination from "../Components/Pagination";
 import TicketTemplate from "../Components/TicketTemplate";
+import InvoicedTicketTemplate from "../Components/InvoicedTicketTemplate";
+import { InvoiceData } from "../Components/InvoiceTemplate";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../config/firebase";
 import { FaCalendarAlt, FaSearch, FaChevronDown, FaChevronUp, FaMoneyBillWave, FaCreditCard, FaReceipt, FaShoppingBag, FaPrint, FaFileInvoiceDollar, FaSpinner, FaQuestion, FaTrash } from "react-icons/fa";
 
 interface Props {
@@ -25,16 +29,98 @@ export default function SalesClient({ initialSales }: Props) {
     );
     const [expanded, setExpanded] = useState<string | null>(null);
     const [saleToPrint, setSaleToPrint] = useState<SaleType | null>(null);
+    const [isPrintingTicket, setIsPrintingTicket] = useState(false);
+    const printTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // --- Billing Modal State ---
     const [showBillingModal, setShowBillingModal] = useState(false);
     const [isBulkBilling, setIsBulkBilling] = useState(false);
     const [billingSale, setBillingSale] = useState<SaleType | null>(null);
+    const IVA_OPTIONS = [
+        { id: 5, rate: 21, label: "21% (General)" },
+        { id: 4, rate: 10.5, label: "10.5%" },
+        { id: 6, rate: 27, label: "27%" },
+        { id: 8, rate: 5, label: "5%" },
+        { id: 9, rate: 2.5, label: "2.5%" },
+        { id: 3, rate: 0, label: "0% (Exento/No gravado)" },
+    ];
     const [billingData, setBillingData] = useState({
-        cbteTipo: 11, // Default C
+        cbteTipo: 6, // Default B (was 11)
         docTipo: 99,  // Default Consumidor Final
         docNro: "",
+        ivaId: 5,
+        ivaRate: 21,
     });
+    const CIGARETTE_IVA_BASE_FACTOR = 0.3;
+    const [activePos, setActivePos] = useState<number | null>(null);
+    const formatArs = (value: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(Number.isFinite(value) ? value : 0);
+    const round2 = (value: number) => Number((Number.isFinite(value) ? value : 0).toFixed(2));
+    const isCigaretteItem = (item: SaleType["products"][number]) => {
+        if (item.isCigarette) return true;
+        return String(item.category || "").trim().toLowerCase() === "cigarrillos";
+    };
+
+    const billingTotal = isBulkBilling
+        ? sales.filter((sale) => selectedIds.has(sale.id)).reduce((acc, sale) => acc + Number(sale.total || 0), 0)
+        : Number(billingSale?.total || 0);
+    const selectedIvaRate = Number(billingData.ivaRate || 0);
+    const selectedSales = isBulkBilling
+        ? sales.filter((sale) => selectedIds.has(sale.id))
+        : (billingSale ? [billingSale] : []);
+    const selectedProducts = selectedSales.flatMap((sale) => sale.products || []);
+
+    const taxPreview = (() => {
+        const hasTax = billingData.cbteTipo === 1 || billingData.cbteTipo === 6;
+        if (!hasTax) {
+            return {
+                neto: round2(billingTotal),
+                iva: 0,
+                tribTotal: 0,
+            };
+        }
+
+        if (!selectedProducts.length) {
+            const neto = selectedIvaRate > 0
+                ? round2(billingTotal / (1 + selectedIvaRate / 100))
+                : round2(billingTotal);
+            const iva = round2(billingTotal - neto);
+            return {
+                neto,
+                iva,
+                tribTotal: 0,
+            };
+        }
+
+        let iva = 0;
+
+        for (const item of selectedProducts) {
+            const qty = Number(item.quantity || 0);
+            const price = Number(item.price || 0);
+            if (!Number.isFinite(qty) || !Number.isFinite(price) || qty <= 0 || price < 0) continue;
+
+            const lineTotal = round2(qty * price);
+            const isCigarette = isCigaretteItem(item);
+            if (selectedIvaRate <= 0) continue;
+
+            if (isCigarette) {
+                const ivaBase = round2(lineTotal * CIGARETTE_IVA_BASE_FACTOR);
+                iva = round2(iva + round2(ivaBase * (selectedIvaRate / 100)));
+                continue;
+            }
+
+            const lineNet = round2(lineTotal / (1 + selectedIvaRate / 100));
+            iva = round2(iva + round2(lineTotal - lineNet));
+        }
+
+        const tribTotal = 0;
+        const neto = round2(billingTotal - iva);
+
+        return {
+            neto,
+            iva,
+            tribTotal,
+        };
+    })();
 
     // --- Bulk Selection ---
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -97,28 +183,67 @@ export default function SalesClient({ initialSales }: Props) {
     };
 
     const businessData = {
-        name: "GALVAN VALERIA ALDANA",
-        cuit: "27- 31391814_4",
+        name: process.env.NEXT_PUBLIC_BUSINESS_NAME || "GALVAN VALERIA ALDANA",
+        cuit: process.env.NEXT_PUBLIC_BUSINESS_CUIT || "27313918144",
         address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "-",
         startActivity: process.env.NEXT_PUBLIC_BUSINESS_START_ACTIVITY || undefined,
         iibb: process.env.NEXT_PUBLIC_BUSINESS_IIBB || undefined,
-        condition: process.env.NEXT_PUBLIC_BUSINESS_CONDITION || "Responsable Monotributo"
+        condition: process.env.NEXT_PUBLIC_BUSINESS_CONDITION || "Responsable Inscripto",
     };
 
-    const handlePrintTicket = (sale: SaleType) => {
+    const [invoiceToPrint, setInvoiceToPrint] = useState<InvoiceData | null>(null);
+
+    const handlePrintTicket = async (sale: SaleType) => {
+        if (isPrintingTicket) return;
+        setIsPrintingTicket(true);
+
+        if (sale.facturaId) {
+            try {
+                const snap = await getDoc(doc(db, "facturas", sale.facturaId));
+                setInvoiceToPrint(snap.exists() ? (snap.data() as InvoiceData) : null);
+            } catch {
+                setInvoiceToPrint(null);
+            }
+        } else {
+            setInvoiceToPrint(null);
+        }
+
         setSaleToPrint(sale);
-        setTimeout(() => {
+        printTimeoutRef.current = setTimeout(() => {
             window.print();
         }, 300);
     };
+
+    useEffect(() => {
+        const handleAfterPrint = () => {
+            setIsPrintingTicket(false);
+
+            if (printTimeoutRef.current) {
+                clearTimeout(printTimeoutRef.current);
+                printTimeoutRef.current = null;
+            }
+        };
+
+        window.addEventListener("afterprint", handleAfterPrint);
+
+        return () => {
+            window.removeEventListener("afterprint", handleAfterPrint);
+
+            if (printTimeoutRef.current) {
+                clearTimeout(printTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleFacturar = async (sale: SaleType) => {
         setBillingSale(sale);
         setIsBulkBilling(false);
         setBillingData({
-            cbteTipo: 11,
+            cbteTipo: 6, // Default B
             docTipo: 99,
             docNro: "",
+            ivaId: 5,
+            ivaRate: 21,
         });
         setShowBillingModal(true);
     };
@@ -128,17 +253,24 @@ export default function SalesClient({ initialSales }: Props) {
         setIsBulkBilling(true);
         setBillingSale(null);
         setBillingData({
-            cbteTipo: 11,
+            cbteTipo: 6, // Default B
             docTipo: 99,
             docNro: "",
+            ivaId: 5,
+            ivaRate: 21,
         });
         setShowBillingModal(true);
     };
 
     const confirmFacturar = async () => {
         // Basic validation
-        if ((billingData.cbteTipo === 1 || billingData.cbteTipo === 6) && !billingData.docNro) {
-            showAlert("Error", "Para Factura A o B es obligatorio el número de documento (CUIT/DNI).", "error");
+        if (billingData.cbteTipo === 1 && !billingData.docNro) {
+            showAlert("Error", "Para Factura A es obligatorio el número de documento (CUIT/DNI).", "error");
+            return;
+        }
+
+        if ((billingData.cbteTipo === 1 || billingData.cbteTipo === 6) && billingData.ivaId === 3 && billingData.docTipo === 99) {
+            showAlert("Error", "No se permite IVA 0% en Factura A/B para Consumidor Final sin identificar. Indicá DNI/CUIT o seleccioná una alícuota gravada.", "error");
             return;
         }
 
@@ -172,7 +304,11 @@ export default function SalesClient({ initialSales }: Props) {
         showAlert("Proceso Finalizado", `Se generaron ${successCount} facturas exitosamente. ${failCount > 0 ? `${failCount} fallaron.` : ""}`, successCount > 0 ? "success" : "error");
     };
 
-    const facturarSingle = async (sale: SaleType, silent = false, options = { cbteTipo: 11, docTipo: 99, docNro: 0 as string | number }): Promise<{ success: boolean; id?: string; error?: string }> => {
+    const facturarSingle = async (
+        sale: SaleType,
+        silent = false,
+        options = { cbteTipo: 6, docTipo: 99, docNro: 0 as string | number, ivaId: 5, ivaRate: 21 }
+    ): Promise<{ success: boolean; id?: string; error?: string }> => {
         if (!silent) setFacturandoId(sale.id);
         try {
             const res = await fetch("/api/afip/facturar", {
@@ -180,10 +316,16 @@ export default function SalesClient({ initialSales }: Props) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     importe: Number(sale.total),
-                    items: sale.products,
+                    items: sale.products.map((item) => ({
+                        ...item,
+                        ivaId: Number(options.ivaId),
+                        ivaRate: Number(options.ivaRate),
+                    })),
                     docTipo: options.docTipo,
                     docNro: Number(options.docNro),
                     cbteTipo: options.cbteTipo,
+                    ivaId: Number(options.ivaId),
+                    ivaRate: Number(options.ivaRate),
                     concepto: 1,
                     saleId: sale.id // Pass the sale ID to link it
                 })
@@ -265,6 +407,22 @@ export default function SalesClient({ initialSales }: Props) {
         }
     };
 
+    useEffect(() => {
+        const fetchActivePos = async () => {
+            try {
+                const res = await fetch("/api/afip/punto-venta");
+                const data = await res.json();
+                if (res.ok && data?.data?.puntoVenta) {
+                    setActivePos(Number(data.data.puntoVenta));
+                }
+            } catch (error) {
+                console.warn("No se pudo obtener el punto de venta activo", error);
+            }
+        };
+
+        fetchActivePos();
+    }, []);
+
     // Check if all displayed are selected
     const isAllSelected = currentSales.length > 0 && currentSales.every(s => selectedIds.has(s.id));
 
@@ -295,7 +453,7 @@ export default function SalesClient({ initialSales }: Props) {
 
     return (
         <>
-            <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300 print:hidden">
+            <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300 print:hidden">
                 <div className="max-w-6xl mx-auto space-y-6">
 
                     {/* Header */}
@@ -310,7 +468,7 @@ export default function SalesClient({ initialSales }: Props) {
                                     className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/40 px-3 py-1.5 rounded-lg transition-colors font-medium text-sm shadow-sm"
                                     title="Ver ayuda de inventario"
                                 >
-                                    <span>❓</span>
+                                    <FaQuestion />
                                     <span>Tutorial</span>
                                 </button>
                             </div>
@@ -534,9 +692,13 @@ export default function SalesClient({ initialSales }: Props) {
 
                                                     <button
                                                         onClick={() => handlePrintTicket(sale)}
-                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-bold transition-colors"
+                                                        disabled={isPrintingTicket}
+                                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${isPrintingTicket
+                                                            ? "bg-blue-100 text-blue-700 opacity-60 cursor-not-allowed"
+                                                            : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                                            }`}
                                                     >
-                                                        <FaPrint /> Imprimir Ticket
+                                                        <FaPrint /> {isPrintingTicket ? "Abriendo impresión..." : "Imprimir Ticket"}
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(sale.id)}
@@ -589,7 +751,7 @@ export default function SalesClient({ initialSales }: Props) {
             </div>
 
             {saleToPrint && (
-                <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999]">
+                <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-9999">
                     <style>{`
                     @media print {
                         nav, header, aside, .sidebar, footer { display: none !important; }
@@ -597,62 +759,118 @@ export default function SalesClient({ initialSales }: Props) {
                         @page { margin: 0; size: auto; }
                     }
                 `}</style>
-                    <TicketTemplate sale={saleToPrint} businessData={businessData} />
+                    {invoiceToPrint ? (
+                        <InvoicedTicketTemplate sale={saleToPrint} invoice={invoiceToPrint} businessData={businessData} />
+                    ) : (
+                        <TicketTemplate sale={saleToPrint} businessData={businessData} />
+                    )}
                 </div>
             )}
 
             {/* Modal de Facturación */}
             {showBillingModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-card w-full max-w-md rounded-2xl shadow-xl border border-border flex flex-col max-h-[90vh]">
+                    <div className="bg-card w-full max-w-2xl rounded-2xl shadow-xl border border-border flex flex-col max-h-[90vh]">
                         <div className="p-6 border-b border-border">
                             <h3 className="text-xl font-bold text-card-foreground">Generar Factura{isBulkBilling ? "s" : ""} AFIP</h3>
                             <p className="text-muted-foreground text-sm mt-1">Seleccione el tipo de comprobante y destinatario.</p>
                         </div>
 
-                        <div className="p-6 space-y-4 overflow-y-auto">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Tipo de Factura</label>
-                                <select
-                                    className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
-                                    value={billingData.cbteTipo}
-                                    onChange={(e) => setBillingData({ ...billingData, cbteTipo: Number(e.target.value) })}
-                                >
-                                    <option value={11}>Factura C (Consumidor Final)</option>
-                                    <option value={6}>Factura B (Resp. Inscripto a Cons. Final/Exento)</option>
-                                    <option value={1}>Factura A (Resp. Inscripto a Resp. Inscripto)</option>
-                                </select>
+                        <div className="p-6 space-y-6 overflow-y-auto">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Total</p>
+                                    <p className="text-lg font-bold text-primary">{formatArs(billingTotal)}</p>
+                                </div>
+                                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Neto gravado</p>
+                                    <p className="text-lg font-bold">{formatArs(taxPreview.neto)}</p>
+                                </div>
+                                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">IVA ({selectedIvaRate}%)</p>
+                                    <p className="text-lg font-bold">{formatArs(taxPreview.iva)}</p>
+                                </div>
+                                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Otros tributos</p>
+                                    <p className="text-lg font-bold">{formatArs(taxPreview.tribTotal)}</p>
+                                </div>
+                                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Ventas seleccionadas</p>
+                                    <p className="text-lg font-bold">{isBulkBilling ? selectedIds.size : (billingSale ? 1 : 0)}</p>
+                                </div>
                             </div>
 
-                            {billingData.cbteTipo !== 11 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-border rounded-2xl p-4 bg-muted/10">
+                                <div className="md:col-span-2">
+                                    <h4 className="text-sm font-bold uppercase tracking-wide text-foreground mb-2">Datos Fiscales</h4>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Tipo de Factura</label>
+                                    <select
+                                        className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                                        value={billingData.cbteTipo}
+                                        onChange={(e) => setBillingData({ ...billingData, cbteTipo: Number(e.target.value) })}
+                                    >
+                                        <option value={6}>Factura B (Resp. Inscripto a Cons. Final/Exento)</option>
+                                        <option value={1}>Factura A (Resp. Inscripto a Resp. Inscripto)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Alícuota de IVA</label>
+                                    <select
+                                        className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                                        value={billingData.ivaId}
+                                        onChange={(e) => {
+                                            const selected = IVA_OPTIONS.find((opt) => opt.id === Number(e.target.value));
+                                            if (!selected) return;
+                                            setBillingData({ ...billingData, ivaId: selected.id, ivaRate: selected.rate });
+                                        }}
+                                    >
+                                        {IVA_OPTIONS.map((opt) => (
+                                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        Punto de venta activo: {String(activePos ?? 10).padStart(5, "0")}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {billingData.cbteTipo === 1 && (
                                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm text-blue-600 dark:text-blue-400">
-                                    ℹ️ Para Factura A o B es obligatorio ingresar DNI o CUIT.
+                                    ℹ️ Para Factura A es obligatorio ingresar DNI o CUIT.
                                 </div>
                             )}
 
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Tipo de Documento</label>
-                                <select
-                                    className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
-                                    value={billingData.docTipo}
-                                    onChange={(e) => setBillingData({ ...billingData, docTipo: Number(e.target.value) })}
-                                >
-                                    <option value={99}>Sin Identificar (Solo Factura C &lt; Límite)</option>
-                                    <option value={96}>DNI (96)</option>
-                                    <option value={80}>CUIT (80)</option>
-                                </select>
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-border rounded-2xl p-4 bg-muted/10">
+                                <div className="md:col-span-2">
+                                    <h4 className="text-sm font-bold uppercase tracking-wide text-foreground mb-2">Datos del Receptor</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Tipo de Documento</label>
+                                    <select
+                                        className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                                        value={billingData.docTipo}
+                                        onChange={(e) => setBillingData({ ...billingData, docTipo: Number(e.target.value) })}
+                                    >
+                                        <option value={99}>Sin Identificar / Consumidor Final</option>
+                                        <option value={96}>DNI</option>
+                                        <option value={80}>CUIT</option>
+                                    </select>
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Número de Documento</label>
-                                <input
-                                    type="number"
-                                    className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
-                                    placeholder="Ingrese DNI o CUIT sin guiones"
-                                    value={billingData.docNro}
-                                    onChange={(e) => setBillingData({ ...billingData, docNro: e.target.value })}
-                                    onFocus={(e) => e.target.select()}
-                                />
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Número de Documento</label>
+                                    <input
+                                        type="number"
+                                        className="w-full p-3 rounded-xl bg-input border border-input outline-none focus:border-primary"
+                                        placeholder="Ingrese DNI o CUIT sin guiones"
+                                        value={billingData.docNro}
+                                        onChange={(e) => setBillingData({ ...billingData, docNro: e.target.value })}
+                                    />
+                                </div>
                             </div>
                         </div>
 

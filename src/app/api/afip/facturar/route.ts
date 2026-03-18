@@ -10,7 +10,10 @@ export async function POST(req: NextRequest) {
         // Ideally, check for a valid session cookie or token here.
 
         const body = await req.json();
-        const { importe, concepto, docNro, docTipo, email, nombre, items, cbteTipo, saleId } = body;
+        const { importe, concepto, docNro, docTipo, email, nombre, items, cbteTipo, saleId, ivaId, ivaRate, fechaComprobante } = body;
+        const cbteTipoNum = Number(cbteTipo || 6);
+        const docTipoNum = Number(docTipo || 99);
+        const ivaIdNum = Number(ivaId || 5);
 
         // 1. Validator: Check if sale is already invoiced (Prevent Duplicates if saleId is present)
         if (saleId && adminDb) {
@@ -34,17 +37,57 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "El importe es obligatorio" }, { status: 400 });
         }
 
+        if (fechaComprobante) {
+            const selectedDate = new Date(`${fechaComprobante}T00:00:00`);
+            if (Number.isNaN(selectedDate.getTime())) {
+                return NextResponse.json({ error: "Fecha de comprobante inválida" }, { status: 400 });
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const minDate = new Date(today);
+            minDate.setDate(minDate.getDate() - 5);
+
+            if (selectedDate < minDate || selectedDate > today) {
+                return NextResponse.json({
+                    error: "La fecha del comprobante debe estar entre hoy y los ultimos 5 dias.",
+                }, { status: 400 });
+            }
+        }
+
+        if ((cbteTipoNum === 1 || cbteTipoNum === 6) && ivaIdNum === 3 && docTipoNum === 99) {
+            return NextResponse.json(
+                {
+                    error: "No se permite IVA 0% en Factura A/B para Consumidor Final sin identificar. Indicá DNI/CUIT o seleccioná una alícuota gravada.",
+                },
+                { status: 400 }
+            );
+        }
+
         const envPos = process.env.AFIP_POS_PRODUCTOS ? parseInt(process.env.AFIP_POS_PRODUCTOS) : 9;
         console.log(`[API] Facturar - Solicitando con Punto de Venta: ${envPos} (Env: ${process.env.AFIP_POS_PRODUCTOS})`);
+
+        const normalizedItems = Array.isArray(items) && items.length > 0
+            ? items
+            : [{
+                title: "Comprobante",
+                quantity: 1,
+                price: Number(importe),
+                ivaId: Number(ivaId || 5),
+                ivaRate: Number(ivaRate || 21),
+            }];
 
         // 2. Call AFIP Service
         const result = await crearFactura(
             Number(importe),
             Number(concepto || 1), // Default to Productos
             Number(docNro || 0),   // Default to Consumidor Final (0)
-            Number(docTipo || 99), // Default to Consumidor Final (99)
+            docTipoNum, // Default to Consumidor Final (99)
             envPos,                // Explicit POS
-            Number(cbteTipo || 6)   // Default to Factura B (Responsable Inscripto)
+            cbteTipoNum,   // Default to Factura B (Responsable Inscripto)
+            normalizedItems,
+            fechaComprobante || undefined
         );
 
         // 3. Save Invoice Record in Firestore (Optional but good for history)
@@ -58,7 +101,10 @@ export async function POST(req: NextRequest) {
                 docTipo: Number(docTipo || 99),
                 email: email || null,
                 nombre: nombre || null,
-                items: items || [], // Guardamos los items si vienen
+                items: normalizedItems,
+                ivaSubtotales: result.ivaSubtotales || [],
+                impTrib: result.impTrib || 0,
+                tributos: result.tributos || [],
                 createdAt: FieldValue.serverTimestamp(),
                 manual: true, // Flag to indicate it was created manually from admin panel
                 saleId: saleId || null // Link invoice to sale if provided

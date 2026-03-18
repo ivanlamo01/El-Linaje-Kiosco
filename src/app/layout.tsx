@@ -1,16 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; // Switch to Inter
 import "./globals.css";
 import { AuthProvider } from "./Context/AuthContext";
 import { CartProvider } from "./Context/CartContext";
 import { SidebarProvider } from "./Context/SidebarContext";
 import { Providers } from "./Components/Providers";
 import AppShell from "./Components/AppShell";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "EL Linaje Kiosco",
@@ -25,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} antialiased`}
+        className="antialiased"
       >
         <Providers>
           <AuthProvider>

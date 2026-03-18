@@ -6,7 +6,17 @@ import { FieldValue } from "firebase-admin/firestore";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { facturaId, importe, concepto, docNro, docTipo, nroComprobanteOriginal } = body;
+        const {
+            facturaId,
+            importe,
+            concepto,
+            docNro,
+            docTipo,
+            nroComprobanteOriginal,
+            tipoComprobanteOriginal,
+            puntoVentaOriginal,
+            ivaSubtotales,
+        } = body;
 
         if (!facturaId || !importe || !nroComprobanteOriginal) {
             return NextResponse.json({ error: "Faltan datos obligatorios" }, { status: 400 });
@@ -18,7 +28,11 @@ export async function POST(req: NextRequest) {
             Number(nroComprobanteOriginal),
             Number(concepto || 1),
             Number(docNro || 0),
-            Number(docTipo || 99)
+            Number(docTipo || 99),
+            undefined,
+            Number(tipoComprobanteOriginal || 11),
+            Number(puntoVentaOriginal || 0),
+            Array.isArray(ivaSubtotales) ? ivaSubtotales : []
         );
 
         // 2. Update original invoice status in Firestore
