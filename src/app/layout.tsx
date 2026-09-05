@@ -7,10 +7,7 @@ import { Providers } from "./Components/Providers";
 import AppShell from "./Components/AppShell";
 import LightModeBackground from "./Components/LightModeBackground";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+const interVariable = "--font-inter";
 
 export const metadata: Metadata = {
   title: "El Linaje Kiosco",
@@ -25,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} antialiased font-sans`}
+        className={`antialiased font-sans`}
       >
         <Providers>
           <LightModeBackground />

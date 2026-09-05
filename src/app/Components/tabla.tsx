@@ -61,6 +61,7 @@ const Tabla: React.FC = () => {
     type: AlertType;
     showCancel?: boolean;
     confirmText?: string;
+    isLoading?: boolean;
     onConfirm: () => void;
     onCancel?: () => void;
   }>({
