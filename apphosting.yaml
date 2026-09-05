@@ -21,12 +21,31 @@ env:
     value: "1:802971134390:web:8990cce82215b3b09a7917"
   - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
     value: "G-WBTR13Q7MF"
+
   - variable: AFIP_CUIT
     value: "27313918144"
 
   - variable: AFIP_POS_PRODUCTOS
-    value: "9"
+    value: "10"
 
+  - variable: CIGARETTE_INTERNAL_TAX_RATE
+    value: "371.26"
+  - variable: CIGARETTE_IIBB_RATE
+    value: "24.61"
+
+  # Datos fiscales fallback (usados si ARCA no responde)
+  - variable: NEXT_PUBLIC_BUSINESS_NAME
+    value: "GALVAN VALERIA ALDANA"
+  - variable: NEXT_PUBLIC_BUSINESS_CUIT
+    value: "27313918144"
+  - variable: NEXT_PUBLIC_BUSINESS_ADDRESS
+    value: "ACCESO NESTOR KIRCHNER 0, ESQ. LAVALLE, MAGDALENA, 1913 BUENOS AIRES"
+  - variable: NEXT_PUBLIC_BUSINESS_START_ACTIVITY
+    value: "04/2019"
+  - variable: NEXT_PUBLIC_BUSINESS_CONDITION
+    value: "Responsable Inscripto"
+  - variable: NEXT_PUBLIC_BUSINESS_IIBB
+    value: "No informado"
 
   # Secretos (Configurar en Cloud Secret Manager)
   - variable: FIREBASE_SERVICE_ACCOUNT_KEY

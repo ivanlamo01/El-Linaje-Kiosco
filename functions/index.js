@@ -42,6 +42,11 @@ function pickFirstString(...values) {
 	return "";
 }
 
+function pickNonEmptyString(...values) {
+	const picked = pickFirstString(...values);
+	return picked ? picked : undefined;
+}
+
 async function resolveCategoryName(productData, localDb) {
 	const safeProduct = productData || {};
 	const directName = pickFirstString(
