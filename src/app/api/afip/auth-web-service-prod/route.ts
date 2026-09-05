@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAfipAdminClient } from '@/app/lib/afip';
 
+const parseCuit = (value: unknown) => {
+    const digits = String(value ?? '').replace(/\D/g, '').trim();
+    if (digits.length !== 11) return 0;
+    const parsed = Number(digits);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export async function POST(req: NextRequest) {
     try {
         // Verificar que el usuario tenga permisos de administrador
@@ -17,12 +24,20 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        const parsedCuit = parseCuit(cuit);
+        if (!parsedCuit) {
+            return NextResponse.json(
+                { error: 'CUIT invalido: debe contener 11 digitos' },
+                { status: 400 }
+            );
+        }
+
         // Inicializar AFIP SDK con el CUIT específico
-        const afip = getAfipAdminClient(parseInt(cuit));
+        const afip = getAfipAdminClient(parsedCuit);
 
         // Datos para autorizar el web service de producción
         const data = {
-            cuit: parseInt(cuit), // CAMPO OBLIGATORIO para la automatización
+            cuit: parsedCuit, // CAMPO OBLIGATORIO para la automatización
             username,
             password,
             alias,

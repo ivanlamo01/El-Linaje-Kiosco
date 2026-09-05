@@ -11,6 +11,7 @@ interface CustomAlertProps {
     showCancel?: boolean;
     confirmText?: string;
     cancelText?: string;
+    isLoading?: boolean;
     onConfirm: () => void;
     onCancel?: () => void;
 }
@@ -23,19 +24,20 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
     showCancel = false,
     confirmText = "Aceptar",
     cancelText = "Cancelar",
+    isLoading = false,
     onConfirm,
     onCancel,
 }) => {
     const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && !isLoading) {
             // Auto-focus confirm button for accessibility/speed
             setTimeout(() => {
                 confirmButtonRef.current?.focus();
             }, 100);
         }
-    }, [isOpen]);
+    }, [isOpen, isLoading]);
 
     if (!isOpen) return null;
 
@@ -78,7 +80,8 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                             <button
                                 type="button"
                                 onClick={onCancel}
-                                className="col-span-1 px-4 py-3 text-sm font-bold bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-xl transition-colors"
+                                disabled={isLoading}
+                                className="col-span-1 px-4 py-3 text-sm font-bold bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-xl transition-colors disabled:opacity-50"
                             >
                                 {cancelText}
                             </button>
@@ -87,9 +90,13 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                             ref={confirmButtonRef}
                             type="button"
                             onClick={onConfirm}
-                            className={`${showCancel ? 'col-span-1' : 'col-span-2'} px-4 py-3 text-sm font-bold text-white ${buttonColor} rounded-xl shadow-lg transition-transform active:scale-95`}
+                            disabled={isLoading}
+                            className={`${showCancel ? 'col-span-1' : 'col-span-2'} px-4 py-3 text-sm font-bold text-white ${buttonColor} rounded-xl shadow-lg transition-transform active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2`}
                         >
-                            {confirmText}
+                            {isLoading && (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            )}
+                            {isLoading ? "Cargando..." : confirmText}
                         </button>
                     </div>
                 </div>

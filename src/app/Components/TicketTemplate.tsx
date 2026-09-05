@@ -14,7 +14,7 @@ export default function TicketTemplate({ sale, businessData }: TicketTemplatePro
     : '-';
 
   return (
-    <div className="w-[72mm] max-w-[72mm] p-2 bg-white text-black font-mono text-xs leading-tight print:block hidden mx-auto">
+    <div className="w-[72mm] max-w-[72mm] box-border p-2 bg-white text-black font-mono text-xs leading-tight print:block hidden mx-auto">
       {/* Header */}
       <div className="text-center border-b border-black pb-2 mb-2">
         <h1 className="text-sm font-bold uppercase">{businessData.name}</h1>

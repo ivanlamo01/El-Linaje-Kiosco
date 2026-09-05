@@ -1,70 +1,65 @@
 @import "tailwindcss";
 
 :root {
-  /* Light Mode - Menu Menu Aesthetics */
-  --background: #E8D3B9;
-  /* Crema más claro basado en el documento */
-  --foreground: #38241D;
-  /* Texto marrón oscuro */
+  /* Light Mode - El Linaje Restaurante (Cálido y Artesanal) */
+  --background: #E3CDAE;
+  --foreground: #4A2311;
 
   --card: #C49A76;
-  /* Marrón más oscuro que el fondo para las cartas */
-  --card-foreground: #38241D;
+  --card-foreground: #4A2311;
 
-  --popover: #C49A76;
-  --popover-foreground: #38241D;
+  --popover: #F0E3D1;
+  --popover-foreground: #4A2311;
 
   --primary: #D25E23;
-  /* Terracota usado en los textos y botones previamente */
-  --primary-foreground: #FFFFFF;
+  --primary-foreground: #000000;
 
-  --sidebar: #D25E23;
-  --sidebar-foreground: #FFFFFF;
+  --secondary: #C8A375;
+  --secondary-foreground: #3B2210;
 
-  --secondary: #D4B594;
-  /* Tono intermedio */
-  --secondary-foreground: #38241D;
+  --muted: #C8A375;
+  --muted-foreground: #5D4037;
 
-  --muted: #D1B89C;
-  --muted-foreground: #5E4132;
+  --accent: #F3EFE0;
+  --accent-foreground: #3E1E15;
 
-  --accent: #D4B594;
-  --accent-foreground: #38241D;
-
-  --destructive: #ef4444;
-  --destructive-foreground: #fafafa;
+  --destructive: #8B0000;
+  --destructive-foreground: #FFFFFF;
 
   --success: #10B981;
   --success-foreground: #000000;
 
-  --border: #A67D5A;
-  /* Borde intermedio para destacar las cartas */
-  --input: #A67D5A;
-  --ring: #B87342;
+  --border: #C8A375;
+  --input: #C8A375;
+  --ring: #3B2210;
 
-  --radius: 0.75rem;
+  --radius: 0.5rem;
+
+  /* Sidebar specific (Light) */
+  --sidebar-bg: #D25E23;
+  --sidebar-fg: #000000;
+
+  /* Brand accent */
+  --brand-accent: #D25E23;
 }
 
 .dark {
-  /* Dark Mode - Carbon Base with Ocre Brand */
+  /* Dark Mode - Carbon Base with Warm Coffee / Terracotta Brand */
   --background: #1C1917;
   /* Café/Carbón */
   --foreground: #E7E5E4;
   /* Arena Clara */
 
   --card: #292524;
-  /* Gris Cálido */
+  /* Gris Cálido / Café */
   --card-foreground: #E7E5E4;
 
   --popover: #292524;
   --popover-foreground: #E7E5E4;
 
   --primary: #D97706;
-  /* Ocre */
+  /* Ocre/Naranja (Dark) */
   --primary-foreground: #FFFFFF;
-
-  --sidebar: #292524;
-  --sidebar-foreground: #E7E5E4;
 
   --secondary: #44403C;
   /* Stone-700 */
@@ -87,6 +82,13 @@
   --border: #44403C;
   --input: #44403C;
   --ring: #D97706;
+
+  /* Sidebar specific (Dark) */
+  --sidebar-bg: #292524;
+  --sidebar-fg: #E7E5E4;
+
+  /* Brand accent cálido café/terracota */
+  --brand-accent: #D25E23;
 }
 
 @theme {
@@ -98,8 +100,6 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -113,6 +113,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-fg);
+
+  /* Brand accent tokens */
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-green: var(--brand-accent);
+
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -120,21 +129,174 @@
   --font-sans: var(--font-inter);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease;
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: Georgia, serif;
+    color: var(--primary);
+  }
+
+  /* Inputs estilizados para ambos temas */
+  input[type='text'],
+  input[type='number'],
+  input[type='email'],
+  input[type='password'],
+  textarea,
+  select {
+    width: 100%;
+    border-width: 1.5px;
+    border-style: solid;
+    border-radius: 0.75rem;
+    padding: 0.625rem 1rem;
+    font-weight: 500;
+    color: var(--foreground);
+    outline: none;
+    border-color: rgba(74, 35, 17, 0.3);
+    background-color: color-mix(in srgb, var(--popover) 50%, transparent);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  input:hover,
+  textarea:hover,
+  select:hover {
+    border-color: var(--primary);
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--primary);
+    background-color: var(--popover);
+  }
+
+  .dark input[type='text'],
+  .dark input[type='number'],
+  .dark input[type='email'],
+  .dark input[type='password'],
+  .dark textarea,
+  .dark select {
+    border-color: var(--border);
+    background-color: color-mix(in srgb, var(--card) 60%, transparent);
+  }
+
+  .dark input:hover,
+  .dark textarea:hover,
+  .dark select:hover {
+    border-color: var(--ring);
+  }
+
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    border-color: var(--primary);
+    background-color: var(--card);
+  }
+
+  /* Remove default spinners from number inputs */
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
 
-.sidebar-bg {
-  background-color: #D25E23;
-  color: #FFFFFF;
+/* Brighten logo image and add warm golden/terracotta glow */
+#sidebar-logo img,
+header img {
+  filter: sepia(0.15) saturate(1.8) brightness(1.05) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) drop-shadow(0 0 10px rgba(210, 94, 35, 0.45));
 }
 
-.dark .sidebar-bg {
-  background-color: #292524;
-  color: #E7E5E4;
+/* Accesorios con el acento cálido de El Linaje */
+.sidebar-item-active {
+  border-left: 4px solid var(--brand-accent) !important;
+  background-color: color-mix(in srgb, var(--brand-accent) 18%, transparent);
+}
+
+.hover-green:hover,
+.hover-brand:hover {
+  box-shadow: 0 0 15px color-mix(in srgb, var(--brand-accent) 35%, transparent) !important;
+  border-color: var(--brand-accent) !important;
+}
+
+/* Modo Claro: Tarjetas limpias, cálidas y elegantes alineadas con El Linaje */
+.bg-card,
+[class*="bg-card"] {
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 6px -1px rgba(74, 35, 17, 0.08), 0 1px 4px -1px rgba(74, 35, 17, 0.04);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.bg-card:hover:not(.bg-card .bg-card):not(header):not(aside):not(nav) {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px -2px rgba(74, 35, 17, 0.14);
+}
+
+/* Modo Oscuro: Sombras y bordes con acento cálido café/terracota */
+.dark .bg-card,
+.dark [class*="bg-card"] {
+  border: 1.5px solid color-mix(in srgb, var(--brand-accent) 20%, transparent) !important;
+  box-shadow: -4px 4px 0px 0px color-mix(in srgb, var(--brand-accent) 25%, transparent) !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+.dark .bg-card:hover:not(.bg-card .bg-card):not(header):not(aside):not(nav) {
+  border-color: var(--brand-accent) !important;
+  box-shadow: -6px 6px 0px 0px color-mix(in srgb, var(--brand-accent) 40%, transparent) !important;
+}
+
+/* Reset de sombras y bordes para tarjetas anidadas, navegación y layouts */
+.bg-card .bg-card,
+.bg-card [class*="bg-card"],
+[class*="bg-card"] .bg-card,
+[class*="bg-card"] [class*="bg-card"],
+header .bg-card,
+aside .bg-card,
+nav .bg-card,
+header [class*="bg-card"],
+aside [class*="bg-card"],
+nav [class*="bg-card"],
+.fixed,
+header,
+aside,
+nav {
+  box-shadow: none !important;
+  border-color: var(--border) !important;
+}
+
+.dark .bg-card .bg-card,
+.dark header,
+.dark aside,
+.dark nav,
+.dark .fixed {
+  box-shadow: none !important;
+  border-color: var(--border) !important;
+}
+
+/* Escalado responsivo global */
+html {
+  font-size: clamp(12px, 0.72vw + 3.5px, 16px);
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 15px;
+  }
 }
 
 select option {
@@ -147,7 +309,6 @@ select option {
     opacity: 0;
     transform: translateY(20px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);

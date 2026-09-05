@@ -9,13 +9,22 @@ import { db } from "../config/firebase";
 import WeeklySalesChart from "./weeklySalesChart";
 import { getNotes, addNote, deleteNote, updateNote } from "../lib/services/notesServices";
 import { useAuthContext } from "../Context/AuthContext";
-import { useCustomAlert } from "../../hooks/useCustomAlert";
+import CustomAlert from "./CustomAlert";
+import { normalizeCategoryKey } from "../lib/utils/categoryNormalization";
 
 const auth = getAuth();
 
 interface TopProduct {
   title: string;
   quantity: number;
+}
+
+interface PromoSuggestion {
+  title: string;
+  stock: number;
+  sold30d: number;
+  reason: string;
+  suggestion: string;
 }
 
 const Main: React.FC = () => {
@@ -29,7 +38,11 @@ const Main: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ variant: string; text: string } | null>(null);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-  const { showAlert, showConfirm, AlertComponent } = useCustomAlert();
+  const [todaySalesAmount, setTodaySalesAmount] = useState<number>(0);
+  const [weeklyDailyAverage, setWeeklyDailyAverage] = useState<number>(0);
+  const [promoSuggestions, setPromoSuggestions] = useState<PromoSuggestion[]>([]);
+
+  const dailyGoal = Number(process.env.NEXT_PUBLIC_DAILY_SALES_GOAL || 150000);
 
   // Notes state
   const [newNoteTitle, setNewNoteTitle] = useState("");
@@ -39,6 +52,7 @@ const Main: React.FC = () => {
   const [hasDeadline, setHasDeadline] = useState(false);
   const [deadline, setDeadline] = useState("");
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   // Edit state
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -89,24 +103,19 @@ const Main: React.FC = () => {
     setExpandedNoteId(expandedNoteId === id ? null : id);
   };
 
-  const handleDeleteNote = (noteId: string) => {
+  const handleDeleteNote = async (noteId: string) => {
     if (!isAdmin) return;
-    showConfirm(
-      "Eliminar Nota",
-      "¿Estás seguro de eliminar esta nota?",
-      async () => {
-        try {
-          await deleteNote(noteId);
-          loadNotes();
-          setAlert({ variant: "success", text: "Nota eliminada" });
-        } catch (error) {
-          console.error(error);
-          setAlert({ variant: "error", text: "Error al eliminar nota" });
-        }
-      },
-      "warning",
-      "Sí, eliminar"
-    );
+    try {
+      await deleteNote(noteId);
+      loadNotes();
+      setAlert({ variant: "success", text: "Nota eliminada" });
+      setTimeout(() => setAlert(null), 3000);
+    } catch (error) {
+      console.error(error);
+      setAlert({ variant: "error", text: "Error al eliminar nota" });
+    } finally {
+      setNoteToDelete(null);
+    }
   };
 
   const handleStartEdit = (note: Note) => {
@@ -168,12 +177,28 @@ const Main: React.FC = () => {
 
   const loadTopProducts = async () => {
     try {
+      const parseSaleDate = (rawTimestamp: unknown): Date | null => {
+        if (!rawTimestamp) return null;
+        if (rawTimestamp instanceof Date) return rawTimestamp;
+        if (typeof rawTimestamp === "object" && rawTimestamp !== null && "seconds" in rawTimestamp) {
+          return new Date((rawTimestamp as { seconds: number }).seconds * 1000);
+        }
+        if (typeof rawTimestamp === "string" || typeof rawTimestamp === "number") {
+          const d = new Date(rawTimestamp);
+          return Number.isNaN(d.getTime()) ? null : d;
+        }
+        return null;
+      };
+
       const today = new Date();
       const dayOfWeek = today.getDay();
       const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const mondayThisWeek = new Date();
       mondayThisWeek.setDate(today.getDate() - daysSinceMonday);
       mondayThisWeek.setHours(0, 0, 0, 0);
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
       const salesQuery = query(
         collection(db, "sales"),
@@ -184,9 +209,11 @@ const Main: React.FC = () => {
       const productSales: Record<string, number> = {};
       let totalSalesAmount = 0;
       let totalQuantity = 0;
+      let totalTodaySales = 0;
 
       querySnapshot.forEach((docSnap) => {
         const sale = docSnap.data();
+        const saleDate = parseSaleDate(sale.timestamp);
         let saleTotal = 0;
         let quantity = 0;
 
@@ -200,6 +227,9 @@ const Main: React.FC = () => {
 
         totalQuantity += quantity;
         totalSalesAmount += saleTotal;
+        if (saleDate && saleDate >= todayStart) {
+          totalTodaySales += saleTotal;
+        }
       });
 
       const sortedProducts: TopProduct[] = Object.entries(productSales)
@@ -209,7 +239,52 @@ const Main: React.FC = () => {
 
       setTotalWeeklyQuantity(totalQuantity);
       setTotalWeeklySales(totalSalesAmount);
+      setTodaySalesAmount(totalTodaySales);
+      const daysElapsed = Math.max(1, Math.ceil((today.getTime() - mondayThisWeek.getTime()) / 86400000) + 1);
+      setWeeklyDailyAverage(totalSalesAmount / daysElapsed);
       setTopProducts(sortedProducts);
+
+      // Sugerencias de promoción por baja rotación (30 días)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const sales30Snapshot = await getDocs(
+        query(collection(db, "sales"), where("timestamp", ">=", thirtyDaysAgo))
+      );
+
+      const sold30Map: Record<string, number> = {};
+      sales30Snapshot.forEach((docSnap) => {
+        const sale = docSnap.data();
+        (sale.products as { title?: string; quantity?: number }[] | undefined)?.forEach((p) => {
+          const title = String(p.title || "").trim();
+          if (!title) return;
+          sold30Map[title] = (sold30Map[title] || 0) + Number(p.quantity || 0);
+        });
+      });
+
+      const productsSnapshot = await getDocs(collection(db, "Productos"));
+      const suggestions: PromoSuggestion[] = productsSnapshot.docs
+        .map((docSnap) => {
+          const data = docSnap.data();
+          const title = String(data.title || data.name || "Sin nombre");
+          const stock = Number(data.stock || 0);
+          const sold30d = Number(sold30Map[title] || 0);
+          const categoryName = String(data.categoryName || data.category || "");
+          return { title, stock, sold30d, categoryName };
+        })
+        .filter((p) => p.stock > 0 && p.sold30d <= 1 && normalizeCategoryKey(p.categoryName) !== "variables")
+        .sort((a, b) => b.stock - a.stock)
+        .slice(0, 5)
+        .map((p) => ({
+          title: p.title,
+          stock: p.stock,
+          sold30d: p.sold30d,
+          reason: "Baja rotación",
+          suggestion: p.stock >= 8 ? "Promo 2x1 o combo" : "Descuento leve 10-15%",
+        }));
+
+      setPromoSuggestions(suggestions);
     } catch (error) {
       console.error("Error loading top products:", error);
     }
@@ -223,14 +298,16 @@ const Main: React.FC = () => {
   }, [alert]);
 
   return (
-    <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300">
+    <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300">
 
       {/* Header / Welcome */}
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">
+           Hola ¿Cómo estás? Buen {new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(new Date()).charAt(0).toUpperCase() + new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(new Date()).slice(1)}
+          </h1>
           {user ? (
-            <p className="text-muted-foreground mt-1">Bienvenido de nuevo, <span className="text-primary font-semibold">{user.displayName}</span></p>
+            <p className="text-muted-foreground mt-1">Que tengas lindo dia <span className="text-primary font-semibold">{user.displayName}</span></p>
           ) : (
             <p className="text-muted-foreground mt-1">Panel de administración</p>
           )}
@@ -258,6 +335,32 @@ const Main: React.FC = () => {
 
         {/* Left Column: Charts & Carousel */}
         <div className="flex flex-col gap-6">
+          <div className="bg-card border border-border p-6 rounded-2xl shadow-sm backdrop-blur-sm">
+            <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className="w-2 h-6 bg-emerald-500 rounded-full"></span>
+              Objetivo Diario
+            </h2>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Venta de hoy</span>
+                <span className="font-semibold">${todaySalesAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Objetivo</span>
+                <span className="font-semibold">${dailyGoal.toFixed(2)}</span>
+              </div>
+              <div className="w-full h-2 bg-secondary rounded-full overflow-hidden mt-2">
+                <div
+                  className="h-full bg-emerald-500 rounded-full"
+                  style={{ width: `${Math.min(100, (todaySalesAmount / Math.max(1, dailyGoal)) * 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Promedio diario semanal: ${weeklyDailyAverage.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
           <div className="bg-card border border-border p-6 rounded-2xl shadow-sm backdrop-blur-sm hover:border-primary/50 transition-all">
             <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
               <span className="w-2 h-6 bg-primary rounded-full"></span>
@@ -265,6 +368,29 @@ const Main: React.FC = () => {
             </h2>
             <WeeklySalesChart />
           </div>
+
+          <div className="bg-card border border-border p-6 rounded-2xl shadow-sm backdrop-blur-sm">
+            <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className="w-2 h-6 bg-amber-500 rounded-full"></span>
+              Promociones Sugeridas
+            </h2>
+            {promoSuggestions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin sugerencias por baja rotación por ahora.</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {promoSuggestions.map((item, index) => (
+                  <li key={`${item.title}-${index}`} className="flex justify-between gap-3 border-b border-border/60 pb-2 last:border-b-0">
+                    <div>
+                      <p className="font-medium text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.reason} | Stock: {item.stock} | Vendido 30d: {item.sold30d}</p>
+                    </div>
+                    <span className="text-amber-600 font-semibold text-xs">{item.suggestion}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="bg-card border border-border p-6 rounded-2xl shadow-sm backdrop-blur-sm hover:border-primary/50 transition-all">
             <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
               <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
@@ -422,7 +548,7 @@ const Main: React.FC = () => {
                             <button onClick={(e) => { e.stopPropagation(); handleStartEdit(note); }} className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors" title="Editar">
                               <FaEdit />
                             </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar">
+                            <button onClick={(e) => { e.stopPropagation(); setNoteToDelete(note.id); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar">
                               <FaTrash />
                             </button>
                           </div>
@@ -534,7 +660,21 @@ const Main: React.FC = () => {
           {totalWeeklySales}
         </div>
       </div>
-      {AlertComponent}
+
+      <CustomAlert
+        isOpen={noteToDelete !== null}
+        title="Eliminar nota"
+        message="¿Estás seguro de eliminar esta nota?"
+        type="warning"
+        showCancel
+        confirmText="Eliminar"
+        onConfirm={() => {
+          if (noteToDelete) {
+            void handleDeleteNote(noteToDelete);
+          }
+        }}
+        onCancel={() => setNoteToDelete(null)}
+      />
     </div>
   );
 };

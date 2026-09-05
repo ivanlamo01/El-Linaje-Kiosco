@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { FaBoxOpen, FaDollarSign, FaExclamationTriangle, FaFolderOpen, FaTimes, FaTrash } from "react-icons/fa";
 
 export type BulkActionType = "price" | "stock" | "category" | "delete";
 
@@ -36,7 +37,7 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
             if (price === "" || price < 0) { setLoading(false); return; }
             payload.value = Number(price);
         } else if (actionType === "stock") {
-            if (stock === "" || stock < 0) { setLoading(false); return; }
+            if (stock === "") { setLoading(false); return; }
             payload.value = Number(stock);
             payload.operation = stockOperation;
         } else if (actionType === "category") {
@@ -51,11 +52,11 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
         onClose();
     };
 
-    const tabs: { id: BulkActionType; label: string; icon: string }[] = [
-        { id: "price", label: "Precio", icon: "💰" },
-        { id: "stock", label: "Stock", icon: "📦" },
-        { id: "category", label: "Categoría", icon: "📂" },
-        { id: "delete", label: "Eliminar", icon: "🗑️" },
+    const tabs: { id: BulkActionType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+        { id: "price", label: "Precio", icon: FaDollarSign },
+        { id: "stock", label: "Stock", icon: FaBoxOpen },
+        { id: "category", label: "Categoría", icon: FaFolderOpen },
+        { id: "delete", label: "Eliminar", icon: FaTrash },
     ];
 
     return (
@@ -66,12 +67,16 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
                     <h2 className="text-2xl font-bold text-foreground">
                         Gestión Masiva <span className="text-primary text-lg">({count})</span>
                     </h2>
-                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
+                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Cerrar modal">
+                        <FaTimes />
+                    </button>
                 </div>
 
                 {/* Tabs */}
                 <div className="flex p-1 bg-muted rounded-xl gap-1">
-                    {tabs.map((tab) => (
+                    {tabs.map((tab) => {
+                        const TabIcon = tab.icon;
+                        return (
                         <button
                             key={tab.id}
                             type="button"
@@ -84,10 +89,11 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
                                 ${tab.id === "delete" && actionType === "delete" ? "!bg-red-500/10 !text-red-500" : ""}
                             `}
                         >
-                            <span>{tab.icon}</span>
+                            <TabIcon className="text-sm" />
                             <span className="hidden sm:inline">{tab.label}</span>
                         </button>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -102,9 +108,8 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
                                     type="number"
                                     placeholder="0.00"
                                     className="w-full p-4 pl-8 bg-input border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-foreground text-lg font-bold"
-                                    value={price === 0 ? "" : price}
-                                    onChange={(e) => setPrice(e.target.value === "" ? "" : Number(e.target.value))}
-                                    onFocus={(e) => e.target.select()}
+                                    value={price}
+                                    onChange={(e) => setPrice(e.target.value === "" ? "" : Number(e.target.value) as any)}
                                     required
                                     min="0"
                                 />
@@ -137,17 +142,15 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
                                     type="number"
                                     placeholder="Cant."
                                     className="w-full p-4 pl-8 bg-input border border-border rounded-xl focus:ring-2 focus:ring-primary outline-none text-foreground text-lg font-bold"
-                                    value={stock === 0 ? "" : stock}
-                                    onChange={(e) => setStock(e.target.value === "" ? "" : Number(e.target.value))}
-                                    onFocus={(e) => e.target.select()}
+                                    value={stock}
+                                    onChange={(e) => setStock(e.target.value === "" ? "" : Number(e.target.value) as any)}
                                     required
-                                    min="0"
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground">
                                 {stockOperation === "set" && "Todos los productos tendrán este stock exacto."}
                                 {stockOperation === "add" && "Se sumará esta cantidad al stock actual de cada producto."}
-                                {stockOperation === "subtract" && "Se restará esta cantidad (el stock no bajará de 0)."}
+                                {stockOperation === "subtract" && "Se restará esta cantidad al stock actual de cada producto."}
                             </p>
                         </div>
                     )}
@@ -173,7 +176,9 @@ const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({ count, categories, on
                     {/* --- DELETE --- */}
                     {actionType === "delete" && (
                         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl space-y-2">
-                            <h3 className="text-red-500 font-bold flex items-center gap-2">⚠️ ¡Zona de Peligro!</h3>
+                            <h3 className="text-red-500 font-bold flex items-center gap-2">
+                                <FaExclamationTriangle /> Zona de Peligro
+                            </h3>
                             <p className="text-sm text-red-500/80">
                                 Estás a punto de eliminar permanentemente <span className="font-bold">{count}</span> productos.
                                 Esta acción <span className="underline">no se puede deshacer</span>.

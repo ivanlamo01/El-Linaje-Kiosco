@@ -17,6 +17,7 @@ export interface InvoiceData {
   nroComprobante?: number;
   puntoVenta?: number;
   tipoComprobante?: number;
+  cbteTipo?: number;
   nombre?: string;
   docNro?: number;
   docTipo?: number;
@@ -24,12 +25,22 @@ export interface InvoiceData {
 
   impNeto?: number;
   impIVA?: number;
+  impTrib?: number;
   impTotal?: number;
+  ivaSubtotales?: { id: number; rate: number; base: number; amount: number }[];
+  tributos?: { id: number; description?: string; rate: number; base: number; amount: number }[];
 
   cbteFch?: string;
   createdAt?: { toDate?: () => Date; seconds?: number };
   fecha?: string;
-  items?: { title: string; quantity: number; price: number | string; description?: string }[];
+  items?: {
+    title: string;
+    quantity: number | string;
+    price: number | string;
+    description?: string;
+    ivaId?: number | string;
+    ivaRate?: number | string;
+  }[];
 }
 
 const formatDateFromAfip = (fecha?: string) => {
@@ -76,7 +87,7 @@ export default function InvoiceTemplate({
         : fechaStr;
 
       // Sanitize inputs
-      const safeNumber = (val: any) => {
+      const safeNumber = (val: unknown) => {
         if (typeof val === 'number') return val;
         if (!val) return 0;
         // Remove everything that is not a digit or a dot/comma
@@ -85,7 +96,7 @@ export default function InvoiceTemplate({
         return isNaN(num) ? 0 : num;
       };
 
-      const safeInt = (val: any) => {
+      const safeInt = (val: unknown) => {
         if (typeof val === 'number') return Math.floor(val);
         if (!val) return 0;
         // Remove everything that is not a digit
@@ -135,107 +146,178 @@ export default function InvoiceTemplate({
   }
 
   const comprobanteLabel = tipoLabel;
-  const numero = `${String(data.puntoVenta || 0).padStart(4, "0")}-${String(data.nroComprobante || 0).padStart(8, "0")}`;
+  const numero = `${String(data.puntoVenta || 0).padStart(5, "0")}-${String(data.nroComprobante || 0).padStart(8, "0")}`;
+  const items = data.items || [];
+  const subtotal = data.impNeto ?? data.importe ?? 0;
+  const ivaTotal = data.impIVA ?? 0;
+  const total = data.impTotal ?? data.importe ?? 0;
+  const ivaRows = data.ivaSubtotales || [];
+  const otrosTributos = data.impTrib ?? (data.tributos || []).reduce((acc, row) => acc + Number(row.amount || 0), 0);
 
   return (
-    <div className="w-[72mm] max-w-[72mm] p-2 bg-white text-black font-mono text-[11px] leading-tight mx-auto print:block">
-      <div className="text-center border-b border-black pb-2 mb-2">
-        <h1 className="text-sm font-bold uppercase">{businessData.name}</h1>
-        <p>CUIT Nro.: {businessData.cuit || "-"}</p>
-        {businessData.iibb && <p>Ing. Brutos: {businessData.iibb}</p>}
-        <p>Dirección: {businessData.address}</p>
-        {businessData.startActivity && <p>Inicio de actividades: {businessData.startActivity}</p>}
-        {businessData.condition && <p>{businessData.condition}</p>}
-        <p>{data.docTipo === 99 ? "A CONSUMIDOR FINAL" : ""}</p>
-      </div>
+    <div className="w-full max-w-[210mm] min-h-[297mm] p-8 bg-white text-black mx-auto border border-zinc-400 text-[12px] leading-[1.35] print:w-[210mm] print:min-h-[297mm] print:max-w-none print:border-0 print:p-[10mm]">
+      <div className="border border-zinc-500">
+        <div className="border-b border-zinc-500 py-2 text-center text-3xl font-bold tracking-wide">ORIGINAL</div>
 
-      <div className="mb-2">
-        <p>Cód. {String(data.tipoComprobante || "-")} - {comprobanteLabel}</p>
-        <p>P.V. Nro. {String(data.puntoVenta || 0).padStart(4, "0")} - Nro. {String(data.nroComprobante || 0).padStart(8, "0")}</p>
-        <div className="flex justify-between">
-          <span>Fecha {formatDateFromAfip(fecha)}</span>
-          {createdAtTime && <span>Hora {createdAtTime}</span>}
+        <div className="grid grid-cols-[1fr_auto_1fr] border-b border-zinc-500">
+          <div className="p-4">
+            <div className="text-2xl font-bold">{businessData.name}</div>
+            <div className="mt-2">Razón Social: {businessData.name}</div>
+            <div>CUIT: {businessData.cuit || "-"}</div>
+            <div>Domicilio Comercial: {businessData.address || "-"}</div>
+            <div>Inicio de Actividades: {businessData.startActivity || "-"}</div>
+            <div>Ingresos Brutos: {businessData.iibb || "-"}</div>
+            <div>Condición frente al IVA: {businessData.condition || "-"}</div>
+          </div>
+
+          <div className="border-x border-zinc-500 px-5 py-3 text-center flex flex-col items-center justify-center">
+            <div className="text-5xl font-bold leading-none">{letra}</div>
+            <div className="text-lg font-bold">COD. 00{data.tipoComprobante || data.cbteTipo || "-"}</div>
+          </div>
+
+          <div className="p-4 flex flex-col justify-center">
+            <div className="text-4xl font-bold tracking-wide">FACTURA</div>
+            <div className="mt-3 text-base font-semibold">Punto de Venta: {String(data.puntoVenta || 0).padStart(5, "0")}</div>
+            <div className="text-base font-semibold">Comp. Nro: {String(data.nroComprobante || 0).padStart(8, "0")}</div>
+            <div className="text-base font-semibold">Fecha Emisión: {formatDateFromAfip(fecha)}</div>
+          </div>
         </div>
-      </div>
 
-      <div className="border-t border-dotted border-black pt-2 mb-2">
-        <p>{data.nombre || "Consumidor Final"}</p>
-        <p>{getDocLabel(data.docTipo)}: {data.docNro || "-"}</p>
-      </div>
+        <div className="grid grid-cols-2 gap-x-6 border-b border-zinc-500 p-4">
+          <div>
+            <div>DOC: {getDocLabel(data.docTipo)} {data.docNro || "-"}</div>
+            <div>Condición frente al IVA: {data.docTipo === 99 ? "Consumidor Final" : getDocLabel(data.docTipo)}</div>
+            <div>Condición de venta: Contado</div>
+          </div>
+          <div>
+            <div>Cliente: {data.nombre || "Consumidor Final"}</div>
+            <div>Domicilio: -</div>
+            <div>Comprobante: {comprobanteLabel}</div>
+          </div>
+        </div>
 
-      <div className="mb-2">
-        <table className="w-full">
+        <table className="w-full border-b border-zinc-500">
           <thead>
-            <tr className="border-b border-dotted border-black">
-              <th className="text-left font-normal">Detalle</th>
-              <th className="text-center font-normal">Cant</th>
-              <th className="text-right font-normal">Importe</th>
+            <tr className="border-b border-zinc-500 bg-zinc-100">
+              <th className="text-left p-2 border-r border-zinc-400 w-[10%]">Código</th>
+              <th className="text-left p-2 border-r border-zinc-400 w-[36%]">Producto / Servicio</th>
+              <th className="text-right p-2 border-r border-zinc-400 w-[12%]">Cantidad</th>
+              <th className="text-left p-2 border-r border-zinc-400 w-[10%]">U. Medida</th>
+              <th className="text-right p-2 border-r border-zinc-400 w-[12%]">Precio Unit.</th>
+              <th className="text-right p-2 border-r border-zinc-400 w-[8%]">% Bonif</th>
+              <th className="text-right p-2 border-r border-zinc-400 w-[12%]">Imp. Bonif.</th>
+              <th className="text-right p-2 w-[12%]">Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            {(data.items && data.items.length > 0) ? (
-              data.items.map((item, index) => (
-                <tr key={index}>
-                  <td className="pt-1 pr-1">
-                    <div className="truncate max-w-[40mm]">{item.title}</div>
-                    {item.description && <div className="text-[10px] text-gray-600">{item.description}</div>}
-                  </td>
-                  <td className="pt-1 text-center">{item.quantity}</td>
-                  <td className="pt-1 text-right">
-                    {formatCurrency(Number(item.price) * Number(item.quantity))}
-                  </td>
-                </tr>
-              ))
+            {items.length > 0 ? (
+              items.map((item, index) => {
+                const qty = Number(item.quantity || 0);
+                const price = Number(item.price || 0);
+                const lineTotal = qty * price;
+
+                return (
+                  <tr key={index} className="border-b border-zinc-200">
+                    <td className="p-2 border-r border-zinc-200">{index + 1}</td>
+                    <td className="p-2 border-r border-zinc-200">
+                      <div>{item.title}</div>
+                      {item.description && <div className="text-[11px] text-zinc-600">{item.description}</div>}
+                    </td>
+                    <td className="p-2 border-r border-zinc-200 text-right">{qty.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="p-2 border-r border-zinc-200">unidades</td>
+                    <td className="p-2 border-r border-zinc-200 text-right">{formatCurrency(price)}</td>
+                    <td className="p-2 border-r border-zinc-200 text-right">0,00</td>
+                    <td className="p-2 border-r border-zinc-200 text-right">0,00</td>
+                    <td className="p-2 text-right">{formatCurrency(lineTotal)}</td>
+                  </tr>
+                );
+              })
             ) : (
-              <tr>
-                <td className="pt-1">Venta al contado</td>
-                <td className="pt-1 text-center">1</td>
-                <td className="pt-1 text-right">{formatCurrency(data.importe || 0)}</td>
+              <tr className="border-b border-zinc-200">
+                <td className="p-2 border-r border-zinc-200">1</td>
+                <td className="p-2 border-r border-zinc-200">Venta al contado</td>
+                <td className="p-2 border-r border-zinc-200 text-right">1,00</td>
+                <td className="p-2 border-r border-zinc-200">unidades</td>
+                <td className="p-2 border-r border-zinc-200 text-right">{formatCurrency(total)}</td>
+                <td className="p-2 border-r border-zinc-200 text-right">0,00</td>
+                <td className="p-2 border-r border-zinc-200 text-right">0,00</td>
+                <td className="p-2 text-right">{formatCurrency(total)}</td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
 
-      <div className="border-t border-black pt-2 mb-2">
-        <div className="flex justify-between font-bold">
-          <span>TOTAL</span>
-          <span>{formatCurrency(data.impTotal || data.importe || 0)}</span>
+        <div className="grid grid-cols-2 border-b border-zinc-500 min-h-[150px]">
+          <div className="p-3 border-r border-zinc-500">
+            <div className="font-semibold">Detalle de alícuotas IVA</div>
+            {ivaRows.length > 0 ? (
+              <table className="w-full mt-2 text-[11px]">
+                <thead>
+                  <tr className="border-b border-zinc-300">
+                    <th className="text-left py-1">Alícuota</th>
+                    <th className="text-right py-1">Base Imponible</th>
+                    <th className="text-right py-1">IVA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ivaRows.map((row, index) => (
+                    <tr key={`${row.id}-${index}`}>
+                      <td className="py-1">{row.rate.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>
+                      <td className="py-1 text-right">{formatCurrency(row.base)}</td>
+                      <td className="py-1 text-right">{formatCurrency(row.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-[11px] mt-2">Sin discriminación de IVA para este tipo de comprobante.</div>
+            )}
+          </div>
+
+          <div className="p-3 flex items-end justify-end">
+            <div className="w-full max-w-[280px] text-right text-[24px] font-bold leading-tight">
+              <div className="grid grid-cols-[1fr_auto] gap-x-4 text-[18px] font-semibold">
+                <div>Subtotal:</div>
+                <div>{formatCurrency(subtotal)}</div>
+                <div>Importe Otros Tributos:</div>
+                <div>{formatCurrency(otrosTributos)}</div>
+                <div>Importe Total:</div>
+                <div>{formatCurrency(total)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-b border-zinc-500 p-3">
+          <div className="text-[22px] italic font-semibold">Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</div>
+          <div className="mt-2 text-[28px] font-bold">IVA Contenido: {formatCurrency(ivaTotal)}</div>
+        </div>
+
+        <div className="p-4">
+          <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+            {qrUrl ? (
+              <div className="w-[108px] h-[108px] border border-zinc-300 p-1">
+                <QRCode size={98} value={qrUrl} viewBox="0 0 256 256" />
+              </div>
+            ) : (
+              <div className="w-[108px] h-[108px] border border-zinc-300" />
+            )}
+
+            <div className="flex flex-col gap-2">
+              <div className="text-2xl font-bold">ARCA</div>
+              <div className="text-[12px]">Comprobante Autorizado</div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-2 text-[13px] font-semibold">
+                <div>Pág. 1/1</div>
+                <div>CAE N°: {data.cae || "-"}</div>
+                <div>Comprobante: {numero}</div>
+                <div>Fecha de Vto. de CAE: {formatDateFromAfip(data.vencimientoCae)}</div>
+              </div>
+              <div className="text-[10px] text-zinc-700 mt-1">Esta representación impresa corresponde a un comprobante electrónico autorizado por ARCA.</div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div className="border-t border-black pt-2 mb-2">
-        <p className="text-center font-bold">TRANSPARENCIA FISCAL</p>
-        <div className="flex justify-between">
-          <span>IVA contenido:</span>
-          <span>{formatCurrency(data.impIVA || 0)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Otros Impuestos Nacionales</span>
-          <span>{formatCurrency(0)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Indirectos:</span>
-          <span>{formatCurrency(0)}</span>
-        </div>
-      </div>
-
-      <div className="border-t border-black pt-2 mb-2">
-        <p>CAE: {data.cae || "-"}</p>
-        <p>Vto CAE: {formatDateFromAfip(data.vencimientoCae)}</p>
-      </div>
-
-      {qrUrl && (
-        <div className="flex flex-col items-center gap-1">
-          <QRCode
-            size={120}
-
-            value={qrUrl}
-            viewBox={`0 0 256 256`}
-          />
-          <p className="text-[9px] text-center">Comprobante autorizado</p>
-        </div>
-      )}
+      {createdAtTime && <div className="text-[10px] text-zinc-600 mt-2 text-right">Hora de emisión local: {createdAtTime}</div>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 try {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && !getApps().length) {
      console.log('Firebase config:', JSON.stringify(firebaseConfig, (k, v) => k === 'apiKey' ? '***' : v));
   }
 } catch (e) {
@@ -24,9 +24,7 @@ try {
 }
 
 const auth = getAuth(app);
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
+const db = getFirestore(app);
 
 
 export { app, auth, db };

@@ -137,7 +137,7 @@ const WeeklySalesChart: React.FC = () => {
 
             {/* Gráfico */}
             <div className="h-64 mt-4 text-xs">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <LineChart data={weeklySalesData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="day" stroke="var(--muted-foreground)" tick={{ fill: 'var(--muted-foreground)' }} />

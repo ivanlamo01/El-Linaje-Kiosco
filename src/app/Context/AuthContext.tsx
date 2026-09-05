@@ -6,6 +6,7 @@ import {
   logoutUser,
   getByUserId,
   loginWithGoogle,
+  getByEmail,
 } from "../lib/services/usuariosServices";
 import { auth, db } from "../config/firebase";
 import { onAuthStateChanged, getIdTokenResult } from "firebase/auth";
@@ -35,18 +36,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const token = await getIdTokenResult(firebaseUser);
         const isAdminClaim = token.claims.isAdmin === true;
 
-        // 2. Traer Firestore con manejo de error (offline)
+        // 2. Traer Firestore con manejo de error (offline/permisos)
         let data: Partial<Usuario> = {};
         try {
           const userRef = doc(db, "Usuarios", firebaseUser.uid);
           const snap = await getDoc(userRef);
           data = snap.exists() ? (snap.data() as Partial<Usuario>) : {};
         } catch (error) {
-          console.warn("Firestore error in AuthContext (offine?):", error);
+          console.warn("Firestore error in AuthContext:", error);
         }
 
         // 3. Traer desde tu servicio
-        const usuarios = await getByUserId(firebaseUser.uid);
+        let usuarios: Usuario[] = [];
+        try {
+          usuarios = await getByUserId(firebaseUser.uid);
+        } catch(e) {
+          console.warn("Firestore error querying user by ID:", e);
+        }
+        
         const baseUser: Usuario = usuarios.length > 0
           ? usuarios[0]
           : {
@@ -101,37 +108,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleGoogleLogin = async () => {
     const cred = await loginWithGoogle();
-    if (cred.user.uid) {
+    if (cred.user.uid && cred.user.email) {
       await cred.user.getIdToken(true);
-      const usuarios = await getByUserId(cred.user.uid);
-
-      if (usuarios.length > 0) {
-        setUser(usuarios[0]);
+      
+      let existingUsers: Usuario[] = [];
+      try {
+        existingUsers = await getByEmail(cred.user.email);
+      } catch (e) {
+        console.warn("No se pudo buscar por email (permisos insuficientes):", e);
+      }
+      
+      if (existingUsers.length > 0) {
+        // Ya existe un usuario con este email, usar su información
+        const existingUser = existingUsers[0];
+        setUser(existingUser);
         setLogin(true);
-
-        // Opcional: Actualizar lastLogin
-        // await updateDoc(doc(db, "Usuarios", cred.user.uid), { lastLogin: new Date() });
+        
+        // Actualizar lastLogin en Firestore
+        try {
+          await setDoc(doc(db, "Usuarios", existingUser.id), {
+            ...existingUser,
+            lastLogin: new Date()
+          }, { merge: true });
+        } catch(e) {
+          console.warn("No se pudo actualizar lastLogin", e);
+        }
       } else {
-        const newUser: Usuario = {
-          id: cred.user.uid, // id local
-          userId: cred.user.uid,
-          nombre: cred.user.displayName || "Usuario sin nombre", // 👈 Usamos 'nombre'
-          email: cred.user.email || "",
-          isAdmin: false,
-        };
+        // No existe, verificar si existe por userId (login previo con Google)
+        let usuarios: Usuario[] = [];
+        try {
+          usuarios = await getByUserId(cred.user.uid);
+        } catch (e) {
+          console.warn("No se pudo buscar por userId", e);
+        }
 
-        // Guardar en Firestore con la estructura correcta
-        await setDoc(doc(db, "Usuarios", cred.user.uid), {
-          userId: newUser.userId,
-          nombre: newUser.nombre, // 👈 Guardamos explícitamente como 'nombre'
-          email: newUser.email,
-          isAdmin: newUser.isAdmin,
-          createdAt: new Date(),
-          lastLogin: new Date()
-        });
+        if (usuarios.length > 0) {
+          setUser(usuarios[0]);
+          setLogin(true);
 
-        setUser(newUser);
-        setLogin(true);
+          // Actualizar lastLogin
+          try {
+            await setDoc(doc(db, "Usuarios", usuarios[0].id), {
+              lastLogin: new Date()
+            }, { merge: true });
+          } catch(e) {
+            console.warn("No se pudo actualizar lastLogin", e);
+          }
+        } else {
+          // Usuario completamente nuevo
+          const newUser: Usuario = {
+            id: cred.user.uid,
+            userId: cred.user.uid,
+            nombre: cred.user.displayName || "Usuario sin nombre",
+            email: cred.user.email,
+            isAdmin: false,
+          };
+
+          // Guardar en Firestore con la estructura correcta
+          try {
+            await setDoc(doc(db, "Usuarios", cred.user.uid), {
+              userId: newUser.userId,
+              nombre: newUser.nombre,
+              email: newUser.email,
+              isAdmin: newUser.isAdmin,
+              createdAt: new Date(),
+              lastLogin: new Date()
+            });
+          } catch(e) {
+            console.warn("No se pudo guardar el nuevo usuario en Firestore", e);
+          }
+
+          setUser(newUser);
+          setLogin(true);
+        }
       }
     }
   };

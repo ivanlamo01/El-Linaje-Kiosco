@@ -4,8 +4,11 @@ import { Timestamp } from "firebase/firestore";
 export interface FirestoreProduct {
     title?: string;
     description?: string;
+    category?: string;
     price?: number | string;
     quantity?: number | string;
+    isCigarette?: boolean;
+    tributeRate?: number | string;
 }
 
 export interface FirestoreSale {
@@ -20,8 +23,13 @@ export interface FirestoreSale {
 export interface Product {
     title: string;
     description?: string;
+    category?: string;
     price: number;
     quantity: number;
+    isCigarette?: boolean;
+    tributeRate?: number;
+    ivaId?: number;
+    ivaRate?: number;
 }
 
 export interface Sale {

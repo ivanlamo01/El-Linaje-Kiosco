@@ -4,7 +4,8 @@ import {
   signOut,
   UserCredential,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import type { Usuario } from "../../types/authTypes";
@@ -12,19 +13,26 @@ import type { Usuario } from "../../types/authTypes";
 
 // 🔹 Obtener usuario por ID (colección Firestore)
 export async function getByUserId(userId: string): Promise<Usuario[]> {
-  try {
-    const usuariosRef = collection(db, "Usuarios");
-    const q = query(usuariosRef, where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
+  const usuariosRef = collection(db, "Usuarios");
+  const q = query(usuariosRef, where("userId", "==", userId));
+  const querySnapshot = await getDocs(q);
 
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Omit<Usuario, "id">),
-    }));
-  } catch (error) {
-    console.error("Error fetching user from Firestore:", error);
-    return [];
-  }
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as Omit<Usuario, "id">),
+  }));
+}
+
+// 🔹 Obtener usuario por email
+export async function getByEmail(email: string): Promise<Usuario[]> {
+  const usuariosRef = collection(db, "Usuarios");
+  const q = query(usuariosRef, where("email", "==", email.toLowerCase()));
+  const querySnapshot = await getDocs(q);
+
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as Omit<Usuario, "id">),
+  }));
 }
 
 // 🔹 Login con Firebase Auth (email/password)
@@ -35,6 +43,7 @@ export async function loginUser(email: string, password: string): Promise<UserCr
 import { Capacitor } from "@capacitor/core";
 import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { isElectron, getElectronAPI } from "../utils/environment";
+import { doc, updateDoc } from "firebase/firestore";
 
 // 🔹 Login con Google (Híbrido: Web vs Native vs Electron)
 export async function loginWithGoogle(): Promise<UserCredential> {
@@ -72,4 +81,21 @@ export async function loginWithGoogle(): Promise<UserCredential> {
 // 🔹 Logout con Firebase Auth
 export async function logoutUser(): Promise<void> {
   return await signOut(auth);
+}
+
+// 🔹 Establecer contraseña para cuenta existente (ej: cuenta Google)
+export async function setPasswordForUser(newPassword: string): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("No hay usuario autenticado");
+  }
+  
+  const { updatePassword } = await import("firebase/auth");
+  await updatePassword(user, newPassword);
+}
+
+// 🔹 Enviar email de recuperación de contraseña
+export async function sendPasswordReset(email: string): Promise<void> {
+  // Usa la plantilla/URL de acción configurada en Firebase Console.
+  await sendPasswordResetEmail(auth, email.trim().toLowerCase());
 }

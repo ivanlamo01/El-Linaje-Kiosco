@@ -8,10 +8,13 @@ export interface Product {
     name?: string;
     title?: string;
     price: number;
+    cost?: number;
     stock: number;
     category?: string;
     description?: string;
     Barcode?: string;
+    priceUpdatedAt?: Date | string | number | { seconds: number; nanoseconds: number };
+    costUpdatedAt?: Date | string | number;
 }
 
 /**
@@ -48,7 +51,7 @@ export class ProductService {
 
         // Mapear campos de SQLite a la interfaz Product de la UI
         const mapped: Product[] = products.map((p) => {
-            const raw = p as unknown as { name?: string; title?: string; Barcode?: string; description?: string };
+            const raw = p as unknown as { name?: string; title?: string; Barcode?: string; description?: string; cost?: number };
 
             return {
                 id: p.id,
@@ -56,6 +59,7 @@ export class ProductService {
 
                 name: p.name || p.title || raw.title || '',
                 price: p.price,
+                cost: p.cost ?? raw.cost ?? 0,
                 stock: p.stock,
                 category: p.category || '',
                 // Mapear 'Barcode' (Electron) o 'barcode' (Capacitor) a 'Barcode' (Product)
@@ -71,18 +75,13 @@ export class ProductService {
      * Obtiene productos desde Firestore (Web)
      */
     private async getAllFromFirestore(): Promise<Product[]> {
-        try {
-            const productsRef = collection(db, 'Productos');
-            const snapshot = await getDocs(productsRef);
+        const productsRef = collection(db, 'Productos');
+        const snapshot = await getDocs(productsRef);
 
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Product[];
-        } catch (error) {
-            console.error('[ProductService] Firestore getAll error:', error);
-            return [];
-        }
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        })) as Product[];
     }
 
     /**
@@ -120,10 +119,13 @@ export class ProductService {
                         name: p.name || p.title || '',
                         title: p.title || p.name || '',
                         price: p.price,
+                        cost: (p as any).cost || 0,
                         stock: p.stock,
                         category: p.category || '',
                         Barcode: p.barcode || rawP.Barcode || '', 
-                        description: '' 
+                        description: '',
+                        priceUpdatedAt: (p as any).priceUpdatedAt || new Date(),
+                        costUpdatedAt: (p as any).costUpdatedAt || new Date(),
                     };
 
                     // Add to Firestore
@@ -177,6 +179,7 @@ export class ProductService {
                 id: p.id,
                 title: p.title || p.name || '',
                 price: p.price,
+                cost: p.cost ?? 0,
                 stock: p.stock,
                 category: p.category,
                 barcode: p.Barcode,
@@ -247,7 +250,19 @@ export class ProductService {
     async updateStock(id: string, newStock: number): Promise<{ success: boolean; error?: string }> {
         if (isNative()) {
             const database = await getDatabase();
-            const res = await database.updateStock(id, newStock);
+            await database.updateStock(id, newStock);
+
+            // Subir el cambio a Firestore (fuente de verdad) para que NO se pierda
+            // cuando syncFromFirestore() se ejecute al reabrir la app.
+            if (await isOnline()) {
+                try {
+                    const productRef = doc(db, 'Productos', id);
+                    await updateDoc(productRef, { stock: newStock });
+                } catch (error) {
+                    console.error('[ProductService] No se pudo sincronizar el stock con Firestore:', error);
+                }
+            }
+
             return { success: true };
         } else {
             try {
@@ -278,6 +293,7 @@ export class ProductService {
                     ...current,
                     title: data.title || data.name || current.title,
                     price: data.price ?? current.price,
+                    cost: data.cost ?? current.cost ?? 0,
                     stock: data.stock ?? current.stock,
                     barcode: data.Barcode || current.barcode,
                     category: data.category || current.category,
@@ -285,6 +301,20 @@ export class ProductService {
                 };
 
                 await database.addProduct(productToSave);
+
+                // Subir el cambio a Firestore (fuente de verdad) para que NO se pierda
+                // cuando syncFromFirestore() se ejecute al reabrir la app.
+                // (Los productos aún no sincronizados tienen id 'local_...' y fallarán
+                //  el updateDoc; eso es esperado: se subirán luego vía syncPendingProducts).
+                if (await isOnline()) {
+                    try {
+                        const productRef = doc(db, 'Productos', id);
+                        await updateDoc(productRef, data);
+                    } catch (error) {
+                        console.error('[ProductService] No se pudo sincronizar la actualización con Firestore:', error);
+                    }
+                }
+
                 return { success: true };
 
             } catch (e) {
@@ -306,6 +336,17 @@ export class ProductService {
             try {
                 const database = await getDatabase();
                 await database.deleteProduct(id);
+
+                // Borrar también de Firestore (fuente de verdad) para que el producto
+                // NO reaparezca cuando syncFromFirestore() se ejecute al reabrir la app.
+                if (await isOnline()) {
+                    try {
+                        await deleteDoc(doc(db, 'Productos', id));
+                    } catch (error) {
+                        console.error('[ProductService] No se pudo borrar el producto en Firestore:', error);
+                    }
+                }
+
                 return { success: true };
             } catch (e) {
                 return { success: false, error: (e as Error).message };

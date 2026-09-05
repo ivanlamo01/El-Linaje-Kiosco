@@ -32,7 +32,7 @@ const ProductoModal: React.FC<Props> = ({
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : name === "price" || name === "stock" ? Number(value) : value,
+      [name]: type === "checkbox" ? checked : name === "price" || name === "stock" ? (value === "" ? "" : Number(value)) : value,
     }));
   };
 
@@ -67,9 +67,8 @@ const ProductoModal: React.FC<Props> = ({
           <input
             type="number"
             name="price"
-            value={formData.price === 0 ? "" : formData.price}
+            value={formData.price}
             onChange={handleChange}
-            onFocus={(e) => e.target.select()}
             placeholder="Precio"
             className="w-full px-3 py-2 rounded bg-black border border-gray-700 text-white"
           />
@@ -92,9 +91,8 @@ const ProductoModal: React.FC<Props> = ({
           <input
             type="number"
             name="stock"
-            value={formData.stock === 0 ? "" : formData.stock}
+            value={formData.stock}
             onChange={handleChange}
-            onFocus={(e) => e.target.select()}
             placeholder="Stock"
             className="w-full px-3 py-2 rounded bg-black border border-gray-700 text-white"
           />

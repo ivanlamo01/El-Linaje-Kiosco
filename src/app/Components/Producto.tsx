@@ -14,14 +14,13 @@ const Producto: React.FC<ProductoProps> = ({
   onDelete,
   isSelected,
   onSelect,
-  syncSource,
 }) => {
   const { login } = useAuthContext();
 
   return (
     <tr
       className={`${stock <= 0
-        ? "bg-muted/50 text-muted-foreground line-through"
+        ? "bg-muted/50 text-muted-foreground"
         : "text-foreground hover:bg-muted/30 transition-colors"
         } border-b border-border ${isSelected ? "bg-primary/10" : ""}`}
     >
@@ -43,11 +42,6 @@ const Producto: React.FC<ProductoProps> = ({
         <span className={`${stock <= 5 ? "text-destructive font-bold" : "text-foreground"}`}>
           {stock}
         </span>
-        {syncSource === 'resto' && (
-          <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full uppercase tracking-tighter border border-orange-200 shadow-sm">
-            Resto
-          </span>
-        )}
       </td>
       <td className="p-4 text-right">
         {login && (
@@ -59,7 +53,7 @@ const Producto: React.FC<ProductoProps> = ({
               Editar
             </button>
             <button
-              onClick={onDelete}
+              onClick={() => onDelete?.()}
               className="bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 px-3 py-2 rounded-lg transition-all shadow-sm flex items-center justify-center"
               title="Eliminar producto"
             >

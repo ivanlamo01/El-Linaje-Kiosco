@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { driver, DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
-import { usePathname } from 'next/navigation';
 
 interface TutorialContextType {
   startTutorial: (type?: 'general' | 'specific') => void;
@@ -14,9 +14,23 @@ const TutorialContext = createContext<TutorialContextType | undefined>(undefined
 
 export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isRunning, setIsRunning] = useState(false);
-  const pathname = usePathname();
+    const pathname = usePathname();
+    const driverRef = useRef<ReturnType<typeof driver> | null>(null);
+
+    useEffect(() => {
+        if (driverRef.current) {
+            driverRef.current.destroy();
+            driverRef.current = null;
+        }
+        setIsRunning(false);
+    }, [pathname]);
 
   const startTutorial = (type: 'general' | 'specific' = 'general') => {
+        if (driverRef.current) {
+            driverRef.current.destroy();
+            driverRef.current = null;
+        }
+
     setIsRunning(true);
     
     let steps: DriveStep[] = [];
@@ -372,7 +386,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         steps = generalSteps;
     }
 
-    const driverObj = driver({
+        const driverObj = driver({
       showProgress: true,
       animate: true,
       allowClose: true,
@@ -380,12 +394,14 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       prevBtnText: '← Anterior',
       doneBtnText: '¡Entendido!',
       onDestroyStarted: () => {
-           driverObj.destroy();
-           setIsRunning(false);
+                     driverObj.destroy();
+                     driverRef.current = null;
+                     setIsRunning(false);
       },
       steps: steps
     });
-    
+
+        driverRef.current = driverObj;
     driverObj.drive();
   };
 

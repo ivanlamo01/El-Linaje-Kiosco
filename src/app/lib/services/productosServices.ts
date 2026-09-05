@@ -44,7 +44,7 @@ export interface FirestoreDoc<T> {
   data: T;
 }
 
-// ---------------------- 📦 PRODUCTOS ----------------------
+// ---------------------- PRODUCTOS ----------------------
 
 // Obtener todos los productos filtrando por título, categoría o barcode
 export const getAll = async (
@@ -52,72 +52,57 @@ export const getAll = async (
   category = "",
   barcode = ""
 ): Promise<FirestoreDoc<ProductoData>[]> => {
-  try {
-    const productsCollection = collection(db, "Productos");
-    const conditions: ReturnType<typeof where>[] = [];
+  const productsCollection = collection(db, "Productos");
+  const conditions: ReturnType<typeof where>[] = [];
 
-    const lowerCaseSearchTerm = searchTerm.toLowerCase().replace(/\s+/g, "");
-    const lowerCaseCategory = category.toLowerCase().trim();
+  const lowerCaseSearchTerm = searchTerm.toLowerCase().replace(/\s+/g, "");
+  const lowerCaseCategory = category.toLowerCase().trim();
 
-    if (lowerCaseSearchTerm) {
-      conditions.push(
-        where("title_normalized", ">=", lowerCaseSearchTerm),
-        where("title_normalized", "<=", lowerCaseSearchTerm + "\uf8ff")
-      );
-    }
-    if (lowerCaseCategory) {
-      conditions.push(
-        where("category_normalized", ">=", lowerCaseCategory),
-        where("category_normalized", "<=", lowerCaseCategory + "\uf8ff")
-      );
-    }
-    if (barcode) {
-      conditions.push(where("Barcode", "==", barcode));
-    }
-
-    const q = query(productsCollection, ...conditions);
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-      id: doc.id,
-      data: doc.data() as ProductoData,
-    }));
-  } catch (error) {
-    console.error("Error in productosServices.getAll:", error);
-    return [];
+  if (lowerCaseSearchTerm) {
+    conditions.push(
+      where("title_normalized", ">=", lowerCaseSearchTerm),
+      where("title_normalized", "<=", lowerCaseSearchTerm + "\uf8ff")
+    );
   }
+  if (lowerCaseCategory) {
+    conditions.push(
+      where("category_normalized", ">=", lowerCaseCategory),
+      where("category_normalized", "<=", lowerCaseCategory + "\uf8ff")
+    );
+  }
+  if (barcode) {
+    conditions.push(where("Barcode", "==", barcode));
+  }
+
+  const q = query(productsCollection, ...conditions);
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+    id: doc.id,
+    data: doc.data() as ProductoData,
+  }));
 };
 
 // Obtener productos para el carrusel
 export const getCarousel = async (): Promise<
   FirestoreDoc<{ url: string }>[]
 > => {
-  try {
-    const carouselCollection = collection(db, "CarouselImg");
-    const querySnapshot = await getDocs(carouselCollection);
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      data: doc.data() as { url: string },
-    }));
-  } catch (error) {
-    console.error("Error in productosServices.getCarousel:", error);
-    return [];
-  }
+  const carouselCollection = collection(db, "CarouselImg");
+  const querySnapshot = await getDocs(carouselCollection);
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    data: doc.data() as { url: string },
+  }));
 };
 
 // Obtener producto por ID
 export const getById = async (
   id: string
 ): Promise<FirestoreDoc<ProductoData> | null> => {
-  try {
-    const productRef = doc(db, "Productos", id);
-    const snapshot = await getDoc(productRef);
-    return snapshot.exists()
-      ? { id: snapshot.id, data: snapshot.data() as ProductoData }
-      : null;
-  } catch (error) {
-    console.error("Error in productosServices.getById:", error);
-    return null;
-  }
+  const productRef = doc(db, "Productos", id);
+  const snapshot = await getDoc(productRef);
+  return snapshot.exists()
+    ? { id: snapshot.id, data: snapshot.data() as ProductoData }
+    : null;
 };
 
 // Crear producto
@@ -162,9 +147,9 @@ export const remove = async (id: string): Promise<void> => {
   await deleteDoc(productRef);
 };
 
-// ---------------------- 🔎 BÚSQUEDAS ----------------------
+// ---------------------- BUSQUEDAS ----------------------
 
-// ---------------------- 🔎 BÚSQUEDAS ----------------------
+// ---------------------- BUSQUEDAS ----------------------
 
 // Obtener producto por barcode
 export const getProductByBarcode = async (
@@ -244,7 +229,7 @@ export const getProductByTitle = async (
   return results.length > 0 ? results[0] : null;
 };
 
-// ---------------------- 🏷️ PROMOCIONES ----------------------
+// ---------------------- PROMOCIONES ----------------------
 export const createPromotion = async (promotion: Promotion): Promise<void> => {
   const titleNormalized = promotion.title.toLowerCase().replace(/\s+/g, "");
   const dataWithNormalizedFields = {
@@ -259,7 +244,7 @@ export const createPromotion = async (promotion: Promotion): Promise<void> => {
   await setDoc(productRef, dataWithNormalizedFields);
 };
 
-// ---------------------- 📦 STOCK ----------------------
+// ---------------------- STOCK ----------------------
 export const updateProductStock = async (
   id: string,
   newStock: number
@@ -268,7 +253,7 @@ export const updateProductStock = async (
   await updateDoc(productRef, { stock: newStock });
 };
 
-// ---------------------- 💰 VENTAS Y GASTOS ----------------------
+// ---------------------- VENTAS Y GASTOS ----------------------
 
 // Agregar venta
 export const addSale = async (sale: Sale): Promise<void> => {

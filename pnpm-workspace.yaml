@@ -1,0 +1,13 @@
+overrides:
+  rolldown: 1.2.6
+
+allowBuilds:
+  '@firebase/util': true
+  better-sqlite3: true
+  electron: true
+  electron-winstaller: true
+  lzma-native: true
+  protobufjs: true
+  re2: true
+  sharp: true
+  unrs-resolver: true

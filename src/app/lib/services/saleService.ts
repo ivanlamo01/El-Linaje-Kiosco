@@ -139,8 +139,11 @@ export class SaleService {
                     const products = (data.products ?? []).map((p: FirestoreProduct) => ({
                         title: p.title ?? "",
                         description: p.description ?? "",
+                        category: p.category ? String(p.category) : undefined,
                         price: Number(p.price) || 0,
                         quantity: Number(p.quantity) || 1,
+                        isCigarette: Boolean(p.isCigarette),
+                        tributeRate: Number(p.tributeRate) || undefined,
                     }));
 
                     return {
@@ -189,8 +192,11 @@ export class SaleService {
                     const products = (data.products ?? []).map((p: FirestoreProduct) => ({
                         title: p.title ?? "",
                         description: p.description ?? "",
+                        category: p.category ? String(p.category) : undefined,
                         price: Number(p.price) || 0,
                         quantity: Number(p.quantity) || 1,
+                        isCigarette: Boolean(p.isCigarette),
+                        tributeRate: Number(p.tributeRate) || undefined,
                     }));
 
                     return {

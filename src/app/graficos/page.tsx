@@ -51,13 +51,13 @@ export default function AnalyticsPage() {
     const COLORS = ['#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#8B5CF6'];
 
     if (loading && !data) return (
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen bg-background flex items-center justify-center">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
     );
 
     return (
-        <div className="min-h-screen text-foreground p-6 lg:p-8 transition-colors duration-300">
+        <div className="min-h-screen bg-background text-foreground p-6 lg:p-8 transition-colors duration-300">
             <div className="max-w-7xl mx-auto space-y-8">
 
                 {/* Header & Filters */}
@@ -136,7 +136,7 @@ export default function AnalyticsPage() {
                                 <FaChartBar className="text-primary" /> Rentabilidad (Ventas vs Gastos)
                             </h3>
                             <div className="h-[350px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                                     <BarChart data={data.dailyFinancials}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                                         <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} tickMargin={10} />
@@ -160,7 +160,7 @@ export default function AnalyticsPage() {
                                 <FaShoppingBag className="text-blue-500" /> Productos Más Vendidos
                             </h3>
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                                     <BarChart layout="vertical" data={data.topProducts} margin={{ left: 20 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={true} vertical={false} />
                                         <XAxis type="number" stroke="var(--muted-foreground)" hide />
@@ -182,7 +182,7 @@ export default function AnalyticsPage() {
                                 <FaChartPie className="text-purple-500" /> Métodos de Pago
                             </h3>
                             <div className="h-[300px] w-full flex items-center justify-center">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                                     <PieChart>
                                         <Pie
                                             data={data.paymentStats}
@@ -198,7 +198,18 @@ export default function AnalyticsPage() {
                                             ))}
                                         </Pie>
                                         <Tooltip
-                                            formatter={(val: number) => `$${val.toFixed(2)}`}
+                                            formatter={(val: number | string | readonly (number | string)[] | undefined) => {
+                                                if (typeof val === "number") {
+                                                    return `$${val.toFixed(2)}`;
+                                                }
+                                                if (Array.isArray(val)) {
+                                                    return val.join(", ");
+                                                }
+                                                if (typeof val === "string") {
+                                                    return val;
+                                                }
+                                                return "--";
+                                            }}
                                             contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--card-foreground)' }}
                                             itemStyle={{ color: 'var(--foreground)' }}
                                         />

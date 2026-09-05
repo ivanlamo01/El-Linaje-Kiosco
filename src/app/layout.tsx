@@ -6,6 +6,7 @@ import { CartProvider } from "./Context/CartContext";
 import { SidebarProvider } from "./Context/SidebarContext";
 import { Providers } from "./Components/Providers";
 import AppShell from "./Components/AppShell";
+import LightModeBackground from "./Components/LightModeBackground";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -13,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EL Linaje Kiosco",
+  title: "El Linaje Kiosco",
   description: "Sistema de gestión de inventario y ventas",
 };
 
@@ -25,9 +26,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} antialiased`}
+        className={`${inter.variable} antialiased font-sans`}
       >
         <Providers>
+          <LightModeBackground />
           <AuthProvider>
             <CartProvider>
               <SidebarProvider>

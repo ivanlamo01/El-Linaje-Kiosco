@@ -5,12 +5,13 @@ export interface IDBProduct {
     id: string;
     title: string;
     price: number;
+    cost?: number;
     stock: number;
     barcode?: string;
     category?: string;
     image?: string;
     last_updated?: string;
-    name?: string; 
+    name?: string;
 }
 
 export interface IDBSaleItem {
@@ -108,6 +109,19 @@ declare global {
                     docTipo: number;
                     docNro: number;
                     cbteTipo?: number;
+                    ivaId?: number;
+                    ivaRate?: number;
+                    fechaComprobante?: string;
+                    items?: Array<{
+                        title?: string;
+                        category?: string;
+                        quantity?: number | string;
+                        price?: number | string;
+                        ivaId?: number | string;
+                        ivaRate?: number | string;
+                        isCigarette?: boolean;
+                        tributeRate?: number | string;
+                    }>;
                 }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
             };
         };
@@ -175,7 +189,7 @@ class CapacitorDB implements DatabaseService {
 
         try {
             console.log('Initializing Capacitor SQLite...');
-            this.db = await this.sqlite.createConnection('el_linaje_kiosko', false, 'no-encryption', 1, false);
+            this.db = await this.sqlite.createConnection('almacen_mgd', false, 'no-encryption', 1, false);
             
             await this.db.open();
 
@@ -184,6 +198,7 @@ class CapacitorDB implements DatabaseService {
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     price REAL NOT NULL,
+                    cost REAL DEFAULT 0,
                     stock INTEGER DEFAULT 0,
                     barcode TEXT,
                     category TEXT,
@@ -219,6 +234,14 @@ class CapacitorDB implements DatabaseService {
             `;
             
             await this.db.execute(schema);
+
+            // Migración: agregar columna cost si la base ya existía sin ella
+            try {
+                await this.db.execute("ALTER TABLE products ADD COLUMN cost REAL DEFAULT 0");
+            } catch {
+                // Ignorar si la columna ya existe
+            }
+
             console.log('Capacitor DB Initialized');
         } catch (err) {
             console.error('Error initializing Capacitor DB:', err);
@@ -258,13 +281,14 @@ class CapacitorDB implements DatabaseService {
     async addProduct(product: IDBProduct) {
         if (!this.db) await this.initialize();
         const query = `
-            INSERT OR REPLACE INTO products (id, title, price, stock, barcode, category, image, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO products (id, title, price, cost, stock, barcode, category, image, last_updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const values = [
             product.id,
             product.title,
             product.price,
+            product.cost || 0,
             product.stock || 0,
             product.barcode || '',
             product.category || '',

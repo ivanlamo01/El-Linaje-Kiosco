@@ -11,14 +11,12 @@ export default function LightModeBackground() {
         setMounted(true);
     }, []);
 
-    console.log("LightModeBackground Status:", { mounted, resolvedTheme });
-
     if (!mounted || resolvedTheme === 'dark') {
         return null;
     }
 
     return (
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden" aria-hidden="true">
             <svg 
                 className="w-full h-full object-cover fixed opacity-[0.45]" 
                 preserveAspectRatio="xMidYMid slice" 

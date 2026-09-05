@@ -11,6 +11,7 @@ import { ProductoData } from "../types/productTypes";
 
 export interface CartItem {
   id: string;
+  productId: string;
   data: ProductoData;
   quantity: number;
   customPrice?: number;
@@ -52,8 +53,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     forceUnique: boolean = false
   ) => {
     setCart((prevCart) => {
-      // Si es una categoría que requiere items únicos (ej: Almacen o Peso con forceUnique)
-      if (product.data.category === "Almacen" || forceUnique) {
+      // Los items con precio/detalle personalizado o peso deben conservarse como líneas únicas.
+      if (forceUnique) {
         // Generar un identificador único
         const uniqueId = uuidv4();
         return [
@@ -61,6 +62,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
           {
             ...product,
             id: `${product.id}-${uniqueId}`,
+            productId: product.id,
             quantity: 1,
             customPrice: customPrice ?? product.data.price,
             customDescription:
@@ -82,6 +84,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
             ...prevCart,
             {
               ...product,
+              productId: product.id,
               quantity: 1,
               customPrice: customPrice ?? product.data.price,
               customDescription:

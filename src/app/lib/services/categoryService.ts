@@ -2,6 +2,7 @@ import { isNative } from '../utils/environment';
 import { collection, getDocs, addDoc, deleteDoc, doc, Timestamp, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/app/config/firebase';
 import { getDatabase, IDBCategory } from '@/app/lib/services/LocalDatabase';
+import { formatCategoryName, normalizeCategoryKey } from '@/app/lib/utils/categoryNormalization';
 
 export class CategoryService {
     private static instance: CategoryService;
@@ -49,13 +50,26 @@ export class CategoryService {
      * Agrega una categoría
      */
     async add(categoryData: { name: string }): Promise<{ success: boolean; id?: string; error?: string }> {
+        const normalizedNewKey = normalizeCategoryKey(categoryData.name);
+        const formattedName = formatCategoryName(categoryData.name);
+        if (!normalizedNewKey || !formattedName) {
+            return { success: false, error: 'El nombre de categoría es obligatorio' };
+        }
+
         if (isNative()) {
             const database = await getDatabase();
+
+            const existing = await database.getCategories();
+            const duplicate = existing.some(cat => normalizeCategoryKey(cat.name) === normalizedNewKey);
+            if (duplicate) {
+                return { success: false, error: 'La categoría ya existe' };
+            }
+
             // Para local generamos ID si no existe
             const id = 'cat_' + Date.now();
             const newCat: IDBCategory = {
                 id,
-                name: categoryData.name,
+                name: formattedName,
                 createdAt: Date.now()
             };
             
@@ -66,8 +80,14 @@ export class CategoryService {
             return { success: false, error: 'Failed to save locally' };
         } else {
             try {
+                const categories = await this.getAllFromFirestore();
+                const duplicate = categories.some(cat => normalizeCategoryKey(cat.name) === normalizedNewKey);
+                if (duplicate) {
+                    return { success: false, error: 'La categoría ya existe' };
+                }
+
                 const docRef = await addDoc(collection(db, 'Categorias'), {
-                    ...categoryData,
+                    name: formattedName,
                     createdAt: Timestamp.now()
                 });
                 return { success: true, id: docRef.id };
