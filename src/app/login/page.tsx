@@ -22,14 +22,18 @@ function Login() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
 
   useEffect(() => {
+    setMounted(true);
     if (login) {
       router.push("/");
     }
   }, [login, router]);
+
+  if (!mounted) return null;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
