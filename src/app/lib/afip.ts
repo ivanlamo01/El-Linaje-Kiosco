@@ -422,6 +422,8 @@ export const crearFactura = async (
             'Concepto': concepto,
             'DocTipo': docTipo,
             'DocNro': docNro,
+            // parche: 5 = Consumidor Final solo si DocTipo es 99; con otro DocTipo falta la condición frente al IVA del cliente
+            ...(Number(docTipo) === 99 ? { 'CondicionIVAReceptorId': 5 } : {}),
             'CbteDesde': nroComprobante,
             'CbteHasta': nroComprobante,
             'CbteFch': formattedDate,
@@ -568,6 +570,8 @@ export const crearNotaCreditoC = async (
             'Concepto': concepto,
             'DocTipo': docTipo,
             'DocNro': docNro,
+            // parche: 5 = Consumidor Final solo si DocTipo es 99; con otro DocTipo falta la condición frente al IVA del cliente
+            ...(Number(docTipo) === 99 ? { 'CondicionIVAReceptorId': 5 } : {}),
             'CbteDesde': nroComprobante,
             'CbteHasta': nroComprobante,
             'CbteFch': formattedDate,
